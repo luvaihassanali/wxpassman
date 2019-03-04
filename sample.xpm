@@ -1,0 +1,35 @@
+/* XPM */
+static const char *const sample_xpm[] = {
+/* columns rows colors chars+per+pixel */
+"37 23 6 1",
+"  c None",
+". c gray80",
+"X c gray80",
+"o c gray80",
+"O c gray80",
+"+ c gray80",
+/* pixels */
+"                                            ",
+"                                            ",
+"                                            ",
+"                                            ",
+"       +++++o++++.                          ",
+"     .+o+++oooooooo++                       ",
+"    +o+++     ooooooo+                      ",
+"   +oo++      oooooooo+                     ",
+"   +ooo++    +ooooooooo                     ",
+"   +oooooooooooooooooo.                     ",
+"   +ooooooooooooooooo+                      ",
+"    +ooooooooooooooo++++.                   ",
+"     +++oooooooooo+.  .+o+.                 ",
+"        .+++++++.+++++  ++o+.               ",
+"                  oooo++  ++o+.             ",
+"                .++++ooo++  ++o+.           ",
+"                      oooo++  ++o+.         ",
+"                    .+++oooo+++++o+         ",
+"                          oooooooo+         ",
+"                        .+++++oo++.         ",
+"                                            ",
+"                                            ",
+"                                            "
+};
