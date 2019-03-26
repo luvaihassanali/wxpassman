@@ -198,7 +198,7 @@ static int callback(void *data, int argc, char **argv, char **azColName){
 void displayData() {
     /* Create SQL statement */
     /* Execute SQL statement */
-    rc = sqlite3_exec(db, "SELECT * from ENTRIES", callback, (void*)data, &zErrMsg);
+    rc = sqlite3_exec(db, "SELECT * from ENTRIES order by RED", callback, (void*)data, &zErrMsg);
        if( rc != SQLITE_OK ) {
       fprintf(stderr, "SQL error: %s\n", zErrMsg);
       sqlite3_free(zErrMsg);
