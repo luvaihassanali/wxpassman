@@ -104,7 +104,7 @@ MyDialog::MyDialog(const wxString& title): wxDialog(NULL, wxID_ANY, title)
     grid->CreateGrid(0,2);
     grid->SetColLabelValue(0, _("Title")); 
     grid->SetColLabelValue(1, _("Username")); 
-    grid->SetMinSize(wxSize(400, 300));
+    grid->SetMinSize(wxSize(400, 280));
     grid->SetColSize(0, 150);
     grid->SetColSize(1, 150);
     grid->SetSelectionMode(wxGrid::wxGridSelectRows);
@@ -181,7 +181,16 @@ static int callback(void *data, int argc, char **argv, char **azColName){
       }
       if(strcmp(azColName[i], "GREEN") == 0) {
         if(getPassword == true) {
-            std::string test = my_decrypt(std::string(argv[i]));
+            try { 
+                    my_decrypt(std::string(argv[i])); 
+                } 
+            catch(const CryptoPP::Exception& exception) { 
+                    std::cout << "Caught exception: " << exception.what() << '\n';
+                    wxMessageBox("The key entered is incorrect - restart application", "Error", wxOK | wxICON_EXCLAMATION);
+                    gs_dialog->Destroy();
+                    return -1;
+                }
+            std::string test = my_decrypt(std::string(argv[i])); 
             if (wxTheClipboard->Open()) { 
                gs_dialog->Show(false);
                wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(test.c_str())));
@@ -198,7 +207,7 @@ static int callback(void *data, int argc, char **argv, char **azColName){
 void displayData() {
     /* Create SQL statement */
     /* Execute SQL statement */
-    rc = sqlite3_exec(db, "SELECT * from ENTRIES order by RED", callback, (void*)data, &zErrMsg);
+    rc = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", callback, (void*)data, &zErrMsg);
        if( rc != SQLITE_OK ) {
       fprintf(stderr, "SQL error: %s\n", zErrMsg);
       sqlite3_free(zErrMsg);
