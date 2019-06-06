@@ -75,7 +75,7 @@ bool MyApp::OnInit()
     {
         wxMessageBox
         (
-            "There appears to be no system tray support in your current environment. You are stupid for trying.",
+            "There appears to be no system tray support in your current environment.",
             "Warning",
             wxOK | wxICON_EXCLAMATION
         );
