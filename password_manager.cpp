@@ -17,7 +17,7 @@
 #include <wx/textdlg.h>
 #include <wx/grid.h>
 #include <wx/clipbrd.h>
-#include "tbtest.h"
+#include "password_manager.h"
 #include <wx/textctrl.h>
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/aes.h>
