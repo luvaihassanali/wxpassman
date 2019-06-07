@@ -253,8 +253,8 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&) {
             search_input->SetFocus();    
             return;
         } 
-        wxMessageBox("Exiting - possible causes:\n> Blank key entered\n> Cancel button pushed", "Error", wxOK | wxICON_EXCLAMATION);
-        gs_dialog->Destroy();
+        wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
+        gs_dialog->Show(false);
     }
     search_input->SetFocus();
 }
