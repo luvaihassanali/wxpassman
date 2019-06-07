@@ -1,3 +1,4 @@
+//timer class to clear clipboard after 3 seconds
 class timer_ : public wxTimer {
 public:
     timer_():wxTimer() {}

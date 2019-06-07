@@ -11,4 +11,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/luv/wxWidgets-3.0.4/gtk-build/lib
 
 g++ tbtest.cpp \`wx-config --cxxflags --libs\` -lcryptopp -L/home/luv/wxWidgets-3.0.4/gtk-build -lsqlite3 -o password_manager
 ```
-Using Sqllitestudio for linux create your sqlite database "data.db" with table ENTRIES and columns RED (primary), YELLOW, GREEN as TEXT elements and keep it in same location as .o file 
+
+The application starts minimized in system tray. When you click on icon you will be prompted for key; use the same key each time you start application as this is used to encrypt passwords. If you enter wrong key an error message will show when you try and copy a password and application will exit.
+After you enter key on first launch, you will not be prompted untill you log off/in.  You can add new entries or delete using buttons, search through entries in the text bar, or double click entry in list to copy password. When double clicked, the application automatically minimizes and you have 3 seconds before clipboard is cleared to copy your password into desired location. Passwords are encryped then stored in sqlite database 'data.db'. 
