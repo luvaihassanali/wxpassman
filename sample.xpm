@@ -3,11 +3,11 @@ static const char *const sample_xpm[] = {
 /* columns rows colors chars+per+pixel */
 "37 23 6 1",
 "  c None",
-". c gray80",
-"X c gray80",
-"o c gray80",
-"O c gray80",
-"+ c gray80",
+". c grey80",
+"X c grey80",
+"o c grey80",
+"O c grey80",
+"+ c grey80",
 /* pixels */
 "                                            ",
 "                                            ",
