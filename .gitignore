@@ -68,3 +68,6 @@ Thumbs.db
 *.exe
 *.out
 *.app
+
+# Visual studio output folders
+vs_mswu*/
