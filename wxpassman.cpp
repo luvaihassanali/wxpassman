@@ -32,8 +32,6 @@
     #include "../sample.xpm"
 #endif
 
-#include "smile.xpm"
-
 #include "wx/taskbar.h"
 
 #include "wxpassman.h"
@@ -71,7 +69,7 @@ bool MyApp::OnInit()
 
     // Create the main window
     gs_dialog = new MyDialog("wxTaskBarIcon Test Dialog");
-
+    gs_dialog->SetIcon(wxICON(key));
     gs_dialog->Show(true);
 
     return true;
@@ -126,7 +124,7 @@ MyDialog::MyDialog(const wxString& title)
     m_taskBarIcon = new MyTaskBarIcon();
 
     // we should be able to show up to 128 characters on Windows
-    if ( !m_taskBarIcon->SetIcon(wxICON(sample),
+    if ( !m_taskBarIcon->SetIcon(wxICON(key),
                                  "wxTaskBarIcon Sample\n"
                                  "With a very, very, very, very\n"
                                  "long tooltip whose length is\n"
@@ -137,7 +135,7 @@ MyDialog::MyDialog(const wxString& title)
 
 #if defined(__WXOSX__) && wxOSX_USE_COCOA
     m_dockIcon = new MyTaskBarIcon(wxTBI_DOCK);
-    if ( !m_dockIcon->SetIcon(wxICON(sample)) )
+    if ( !m_dockIcon->SetIcon(wxICON(key)) )
     {
         wxLogError("Could not set icon.");
     }
@@ -232,10 +230,10 @@ void MyTaskBarIcon::OnMenuUICheckmark(wxUpdateUIEvent &event)
 
 void MyTaskBarIcon::OnMenuSetNewIcon(wxCommandEvent&)
 {
-    wxIcon icon(smile_xpm);
+    //wxIcon icon(smile_xpm);
 
-    if (!SetIcon(icon, "wxTaskBarIcon Sample - a different icon"))
-        wxMessageBox("Could not set new icon.");
+    //if (!SetIcon(icon, "wxTaskBarIcon Sample - a different icon"))
+     //   wxMessageBox("Could not set new icon.");
 }
 
 void MyTaskBarIcon::OnMenuSub(wxCommandEvent&)

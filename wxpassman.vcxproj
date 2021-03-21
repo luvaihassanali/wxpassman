@@ -501,7 +501,7 @@
     <ClInclude Include="wxpassman.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="sample.rc" />
+    <ResourceCompile Include="key.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
