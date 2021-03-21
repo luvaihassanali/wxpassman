@@ -70,4 +70,5 @@ Thumbs.db
 *.app
 
 # Visual studio output folders
-vs_mswu*/
+vc_mswu_x64/
+vc_mswud_x64/
