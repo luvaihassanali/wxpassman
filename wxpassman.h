@@ -1,12 +1,9 @@
-/////////////////////////////////////////////////////////////////////////////
-// Name:        tbtest.h
-// Purpose:     wxTaskBarIcon sample
-// Author:      Julian Smart
-// Modified by:
-// Created:     01/02/97
-// Copyright:   (c)
-// Licence:     wxWindows licence
-/////////////////////////////////////////////////////////////////////////////
+class timer_ : public wxTimer {
+public:
+    timer_() :wxTimer() {}
+    void Notify() { wxTheClipboard->Clear(); }
+    void start() { wxTimer::StartOnce(3000); }
+};
 
 class MyTaskBarIcon : public wxTaskBarIcon
 {
@@ -20,19 +17,12 @@ public:
     {}
 
     void OnLeftButtonDClick(wxTaskBarIconEvent&);
-    void OnMenuRestore(wxCommandEvent&);
     void OnMenuExit(wxCommandEvent&);
-    void OnMenuSetNewIcon(wxCommandEvent&);
-    void OnMenuCheckmark(wxCommandEvent&);
-    void OnMenuUICheckmark(wxUpdateUIEvent&);
-    void OnMenuSub(wxCommandEvent&);
     virtual wxMenu *CreatePopupMenu() wxOVERRIDE;
 
     wxDECLARE_EVENT_TABLE();
 };
 
-
-// Define a new application
 class MyApp : public wxApp
 {
 public:
@@ -46,11 +36,12 @@ public:
     virtual ~MyDialog();
 
 protected:
-    void OnAbout(wxCommandEvent& event);
-    void OnOK(wxCommandEvent& event);
+    void OnNew(wxCommandEvent& event);
+    void OnDelete(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);
     void OnCloseWindow(wxCloseEvent& event);
-
+    static void OnSearch(wxCommandEvent& event);
+    static void OnCellClick(wxGridEvent& event);
     MyTaskBarIcon   *m_taskBarIcon;
 #if defined(__WXOSX__) && wxOSX_USE_COCOA
     MyTaskBarIcon   *m_dockIcon;
