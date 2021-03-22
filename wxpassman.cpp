@@ -1,22 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////
-// Name:        tbtest.cpp
-// Purpose:     wxTaskBarIcon demo
-// Author:      Julian Smart
-// Modified by:
-// Created:     01/02/97
-// Copyright:   (c)
-// Licence:     wxWindows licence
-/////////////////////////////////////////////////////////////////////////////
-
-// ============================================================================
-// declarations
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// headers
-// ----------------------------------------------------------------------------
-
-// For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
 
 #ifdef __BORLANDC__
@@ -32,23 +13,31 @@
     #include "../sample.xpm"
 #endif
 
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/pwdbased.h>
+#include <cryptopp/eax.h>
+#include <cryptopp/hex.h>
+#include <cryptopp/sha.h>
+#include "wx/clipbrd.h"
+#include "wx/grid.h"
 #include "wx/taskbar.h"
-
 #include "wxpassman.h"
-
-// ----------------------------------------------------------------------------
-// global variables
-// ----------------------------------------------------------------------------
+#include "./sqlite3-3.35.2/sqlite3.h"
 
 static MyDialog *gs_dialog = NULL;
-
-// ============================================================================
-// implementation
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// MyApp
-// ----------------------------------------------------------------------------
+std::string master_key = "";
+wxGrid* grid;
+wxTextCtrl* search_input;
+sqlite3* db;
+char* zErrMsg = 0;
+int rc;
+char* sql;
+const char* data = "SQL SELECT:\n";
+CryptoPP::SecByteBlock derived(32);
+bool getPassword = false;
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -67,23 +56,21 @@ bool MyApp::OnInit()
         );
     }
 
-    // Create the main window
-    gs_dialog = new MyDialog("wxTaskBarIcon Test Dialog");
+    int rc = sqlite3_open_v2("data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+    if (rc != SQLITE_OK) {
+        wxMessageBox("Error cannot open database", "Error", wxOK | wxICON_EXCLAMATION);
+        return false;
+    }
+    gs_dialog = new MyDialog("Password Manager");
     gs_dialog->SetIcon(wxICON(key));
     gs_dialog->Show(true);
 
     return true;
 }
 
-
-// ----------------------------------------------------------------------------
-// MyDialog implementation
-// ----------------------------------------------------------------------------
-
 wxBEGIN_EVENT_TABLE(MyDialog, wxDialog)
-    EVT_BUTTON(wxID_ABOUT, MyDialog::OnAbout)
-    EVT_BUTTON(wxID_OK, MyDialog::OnOK)
-    EVT_BUTTON(wxID_EXIT, MyDialog::OnExit)
+    EVT_BUTTON(wxID_HIGHEST + 1, MyDialog::OnNew)
+    EVT_BUTTON(wxID_HIGHEST + 2, MyDialog::OnDelete)
     EVT_CLOSE(MyDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
@@ -91,47 +78,32 @@ wxEND_EVENT_TABLE()
 MyDialog::MyDialog(const wxString& title)
         : wxDialog(NULL, wxID_ANY, title)
 {
-    wxSizer * const sizerTop = new wxBoxSizer(wxVERTICAL);
-
+    wxSizer* const sizerTop = new wxBoxSizer(wxVERTICAL);
     wxSizerFlags flags;
     flags.Border(wxALL, 10);
-
-    sizerTop->Add(new wxStaticText
-                      (
-                        this,
-                        wxID_ANY,
-                        "Press 'Hide me' to hide this window, Exit to quit."
-                      ), flags);
-
-    sizerTop->Add(new wxStaticText
-                      (
-                        this,
-                        wxID_ANY,
-                        "Double-click on the taskbar icon to show me again."
-                      ), flags);
-
-    sizerTop->AddStretchSpacer()->SetMinSize(200, 50);
-
-    wxSizer * const sizerBtns = new wxBoxSizer(wxHORIZONTAL);
-    sizerBtns->Add(new wxButton(this, wxID_ABOUT, "&About"), flags);
-    sizerBtns->Add(new wxButton(this, wxID_OK, "&Hide"), flags);
-    sizerBtns->Add(new wxButton(this, wxID_EXIT, "E&xit"), flags);
-
+    grid = new wxGrid(this, -1, wxPoint(0, 0), wxSize(400, 300));
+    grid->CreateGrid(0, 2);
+    grid->SetColLabelValue(0, _("Title"));
+    grid->SetColLabelValue(1, _("Username"));
+    grid->SetMinSize(wxSize(400, 280));
+    grid->SetColSize(0, 150);
+    grid->SetColSize(1, 150);
+    grid->SetSelectionMode(wxGrid::wxGridSelectRows);
+    //grid->SetEditable(false);
+    grid->AutoSizeRows();
+    grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MyDialog::OnCellClick);
+    sizerTop->Add(grid, flags.Align(wxALIGN_CENTRE));
+    search_input = new wxTextCtrl(this, -1, "", wxDefaultPosition);
+    search_input->Bind(wxEVT_TEXT, MyDialog::OnSearch);
+    sizerTop->Add(search_input, 1, wxEXPAND | wxALL, 10);
+    wxSizer* const sizerBtns = new wxBoxSizer(wxHORIZONTAL);
+    sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 1, wxT("&New")));
+    sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
     sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
     SetSizerAndFit(sizerTop);
     Centre();
-
     m_taskBarIcon = new MyTaskBarIcon();
-
-    // we should be able to show up to 128 characters on Windows
-    if ( !m_taskBarIcon->SetIcon(wxICON(key),
-                                 "wxTaskBarIcon Sample\n"
-                                 "With a very, very, very, very\n"
-                                 "long tooltip whose length is\n"
-                                 "greater than 64 characters.") )
-    {
-        wxLogError("Could not set icon.");
-    }
+    if (!m_taskBarIcon->SetIcon(wxICON(key), "Password Manager")) { wxLogError(wxT("Could not set icon.")); }
 
 #if defined(__WXOSX__) && wxOSX_USE_COCOA
     m_dockIcon = new MyTaskBarIcon(wxTBI_DOCK);
@@ -147,127 +119,179 @@ MyDialog::~MyDialog()
     delete m_taskBarIcon;
 }
 
-void MyDialog::OnAbout(wxCommandEvent& WXUNUSED(event))
-{
-    static const char * const title = "About wxWidgets Taskbar Sample";
-    static const char * const message
-        = "wxWidgets sample showing wxTaskBarIcon class\n"
-          "\n"
-          "(C) 1997 Julian Smart\n"
-          "(C) 2007 Vadim Zeitlin";
-
-#if defined(__WXMSW__) && wxUSE_TASKBARICON_BALLOONS
-    m_taskBarIcon->ShowBalloon(title, message, 15000, wxICON_INFORMATION);
-#else // !__WXMSW__
-    wxMessageBox(message, title, wxICON_INFORMATION|wxOK, this);
-#endif // __WXMSW__/!__WXMSW__
+std::string wx_to_string(wxString wx_string) {
+    return std::string(wx_string.mb_str(wxConvUTF8));
 }
 
-void MyDialog::OnOK(wxCommandEvent& WXUNUSED(event))
-{
-    Show(false);
+std::string my_decrypt(std::string cipher) {
+    std::string decoded;
+    CryptoPP::HexDecoder decoder;
+    decoder.Detach(new CryptoPP::StringSink(decoded));
+    decoder.Put((CryptoPP::byte*)cipher.data(), cipher.size());
+    decoder.MessageEnd();
+    std::string test;
+    CryptoPP::EAX<CryptoPP::AES>::Decryption decrypto;
+    decrypto.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+    CryptoPP::AuthenticatedDecryptionFilter cf(decrypto, new CryptoPP::StringSink(test));
+    cf.Put((CryptoPP::byte*)decoded.data(), decoded.size());
+    cf.MessageEnd();
+    return test;
 }
 
-void MyDialog::OnExit(wxCommandEvent& WXUNUSED(event))
-{
+static int callback(void* data, int argc, char** argv, char** azColName) {
+    int i;
+    bool found = false;
+    for (i = 0; i < argc; i++) {
+        // printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+        if (getPassword == false) {
+            if (strcmp(azColName[i], "RED") == 0) {
+                grid->AppendRows(1);
+                grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 0), (wxString::FromUTF8(argv[i])));
+            }
+            if (strcmp(azColName[i], "YELLOW") == 0) {
+                grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 1), (wxString::FromUTF8(argv[i])));
+            }
+        }
+        if (strcmp(azColName[i], "GREEN") == 0) {
+            if (getPassword == true) {
+                try {
+                    my_decrypt(std::string(argv[i]));
+                }
+                catch (const CryptoPP::Exception& exception) {
+                    std::cout << "Caught exception: " << exception.what() << '\n';
+                    wxMessageBox("The key entered is incorrect - restart application", "Error", wxOK | wxICON_EXCLAMATION);
+                    gs_dialog->Destroy();
+                    return -1;
+                }
+                std::string test = my_decrypt(std::string(argv[i]));
+                if (wxTheClipboard->Open()) {
+                    gs_dialog->Show(false);
+                    wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(test.c_str())));
+                    wxTheClipboard->Close();
+                    timer_* timer = new timer_();
+                    timer->start();
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+void displayData() {
+    rc = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", callback, (void*)data, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        sqlite3_free(zErrMsg);
+    }
+    else {
+        //fprintf(stdout, "Operation done successfully\n");
+    }
+}
+
+void MyDialog::OnCellClick(wxGridEvent& event) {
+    std::string clicked = wx_to_string(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
+    getPassword = true;
+    std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
+    rc = sqlite3_exec(db, stmt.c_str(), callback, (void*)data, &zErrMsg);
+    getPassword = false;
+}
+
+void MyDialog::OnSearch(wxCommandEvent& event) {
+    std::string query = std::string(search_input->GetValue());
+    if (query == "") {
+        grid->DeleteRows(0, grid->GetNumberRows(), true);
+        displayData();
+        return;
+    }
+    std::string stmt = "SELECT * FROM ENTRIES WHERE RED LIKE '%" + query + "%'";
+    grid->DeleteRows(0, grid->GetNumberRows(), true);
+    rc = sqlite3_exec(db, stmt.c_str(), callback, (void*)data, &zErrMsg);
+}
+
+void MyDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
+    wxString title = wxGetTextFromUser("Title:", "Enter new entry details", wxEmptyString);
+    wxString user = wxGetTextFromUser("Username:", "Enter new entry details", wxEmptyString);
+    wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
+    std::string plaintext = wx_to_string(pass), ciphertext, recovered;
+    CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
+    encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+    CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
+    ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
+    ef.MessageEnd();
+    std::string key, iv, cipher;
+    CryptoPP::HexEncoder encoder;
+    encoder.Detach(new CryptoPP::StringSink(cipher));
+    encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
+    encoder.MessageEnd();
+    std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + wx_to_string(title) + "', '" + wx_to_string(user) + "', '" + cipher + "');";
+    rc = sqlite3_exec(db, stmt.c_str(), callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        sqlite3_free(zErrMsg);
+    }
+    else {
+        //fprintf(stdout, "Operation done successfully\n");
+    }
+    if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
+    displayData();
+}
+
+void MyDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
+    wxString title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
+    std::string query = wx_to_string(title);
+    std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
+    rc = sqlite3_exec(db, stmt.c_str(), callback, 0, &zErrMsg);
+    if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
+    displayData();
+}
+
+void MyDialog::OnExit(wxCommandEvent& WXUNUSED(event)) {
     Close(true);
 }
 
-void MyDialog::OnCloseWindow(wxCloseEvent& WXUNUSED(event))
-{
-    Destroy();
+void MyDialog::OnCloseWindow(wxCloseEvent& WXUNUSED(event)) {
+    Show(false);
+    //Destroy();
 }
 
-
-// ----------------------------------------------------------------------------
-// MyTaskBarIcon implementation
-// ----------------------------------------------------------------------------
-
-enum
-{
-    PU_RESTORE = 10001,
-    PU_NEW_ICON,
-    PU_EXIT,
-    PU_CHECKMARK,
-    PU_SUB1,
-    PU_SUB2,
-    PU_SUBMAIN
-};
-
+enum { PU_EXIT };
 
 wxBEGIN_EVENT_TABLE(MyTaskBarIcon, wxTaskBarIcon)
-    EVT_MENU(PU_RESTORE, MyTaskBarIcon::OnMenuRestore)
-    EVT_MENU(PU_EXIT,    MyTaskBarIcon::OnMenuExit)
-    EVT_MENU(PU_NEW_ICON,MyTaskBarIcon::OnMenuSetNewIcon)
-    EVT_MENU(PU_CHECKMARK,MyTaskBarIcon::OnMenuCheckmark)
-    EVT_UPDATE_UI(PU_CHECKMARK,MyTaskBarIcon::OnMenuUICheckmark)
-    EVT_TASKBAR_LEFT_DCLICK  (MyTaskBarIcon::OnLeftButtonDClick)
-    EVT_MENU(PU_SUB1, MyTaskBarIcon::OnMenuSub)
-    EVT_MENU(PU_SUB2, MyTaskBarIcon::OnMenuSub)
+    EVT_MENU(PU_EXIT, MyTaskBarIcon::OnMenuExit)
+    EVT_TASKBAR_LEFT_DCLICK(MyTaskBarIcon::OnLeftButtonDClick)
 wxEND_EVENT_TABLE()
-
-void MyTaskBarIcon::OnMenuRestore(wxCommandEvent& )
-{
-    gs_dialog->Show(true);
-}
 
 void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 {
-    gs_dialog->Close(true);
+    sqlite3_close(db);
+    gs_dialog->Destroy();
+    //gs_dialog->Close(true);
 }
 
-static bool check = true;
-
-void MyTaskBarIcon::OnMenuCheckmark(wxCommandEvent& )
-{
-    check = !check;
-}
-
-void MyTaskBarIcon::OnMenuUICheckmark(wxUpdateUIEvent &event)
-{
-    event.Check(check);
-}
-
-void MyTaskBarIcon::OnMenuSetNewIcon(wxCommandEvent&)
-{
-    //wxIcon icon(smile_xpm);
-
-    //if (!SetIcon(icon, "wxTaskBarIcon Sample - a different icon"))
-     //   wxMessageBox("Could not set new icon.");
-}
-
-void MyTaskBarIcon::OnMenuSub(wxCommandEvent&)
-{
-    wxMessageBox("You clicked on a submenu!");
-}
-
-// Overridables
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
 {
-    wxMenu *menu = new wxMenu;
-    menu->Append(PU_RESTORE, "&Restore main window");
-    menu->AppendSeparator();
-    menu->Append(PU_NEW_ICON, "&Set New Icon");
-    menu->AppendSeparator();
-    menu->AppendCheckItem(PU_CHECKMARK, "Test &check mark");
-    menu->AppendSeparator();
-    wxMenu *submenu = new wxMenu;
-    submenu->Append(PU_SUB1, "One submenu");
-    submenu->AppendSeparator();
-    submenu->Append(PU_SUB2, "Another submenu");
-    menu->Append(PU_SUBMAIN, "Submenu", submenu);
-    /* OSX has built-in quit menu for the dock menu, but not for the status item */
-#ifdef __WXOSX__
-    if ( OSXIsStatusItem() )
-#endif
-    {
-        menu->AppendSeparator();
-        menu->Append(PU_EXIT,    "E&xit");
-    }
+    wxMenu* menu = new wxMenu;
+    menu->Append(PU_EXIT, wxT("E&xit"));
     return menu;
 }
 
 void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
 {
     gs_dialog->Show(true);
+    if (master_key.compare("") == 0) {
+        wxString pwd = wxGetPasswordFromUser("Enter key:", "Password Manager", wxEmptyString);
+        if (!pwd.empty()) {
+            unsigned int iterations = 15000;
+            char purpose = 0;
+            master_key = wx_to_string(pwd);
+            CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> kdf;
+            kdf.DeriveKey(derived.data(), derived.size(), purpose, (CryptoPP::byte*)master_key.data(), master_key.size(), NULL, 0, iterations);
+            displayData();
+            search_input->SetFocus();
+            return;
+        }
+        wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
+        gs_dialog->Show(false);
+    }
+    search_input->SetFocus();
 }
