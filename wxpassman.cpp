@@ -8,11 +8,6 @@
     #include "wx/wx.h"
 #endif
 
-// the application icon (under Windows it is in resources)
-#ifndef wxHAS_IMAGES_IN_RESOURCES
-    #include "../sample.xpm"
-#endif
-
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
@@ -27,6 +22,10 @@
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
 
+//#define _CRTDBG_MAP_ALLOC
+//#include <stdlib.h>
+//#include <crtdbg.h>
+
 static MyDialog *gs_dialog = NULL;
 std::string master_key = "";
 wxGrid* grid;
@@ -37,33 +36,32 @@ int rc;
 char* sql;
 const char* data = "SQL SELECT:\n";
 CryptoPP::SecByteBlock derived(32);
+timer_* timer;
 bool getPassword = false;
+const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+int string_length = sizeof(alphanum) - 1;
 
 wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit()
 {
-    if ( !wxApp::OnInit() )
-        return false;
+    //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-    if ( !wxTaskBarIcon::IsAvailable() )
-    {
-        wxMessageBox
-        (
-            "There appears to be no system tray support in your current environment. This sample may not behave as expected.",
-            "Warning",
-            wxOK | wxICON_EXCLAMATION
-        );
+    if (!wxApp::OnInit()) return false;
+
+    if(!wxTaskBarIcon::IsAvailable()) {
+        wxMessageBox("There appears to be no system tray support in your current environment. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
+        return false; 
     }
 
-    int rc = sqlite3_open_v2("data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+    rc = sqlite3_open_v2("./data.db", &db, SQLITE_OPEN_READWRITE, NULL);
     if (rc != SQLITE_OK) {
-        wxMessageBox("Error cannot open database", "Error", wxOK | wxICON_EXCLAMATION);
+        wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
         return false;
     }
     gs_dialog = new MyDialog("Password Manager");
     gs_dialog->SetIcon(wxICON(key));
-    gs_dialog->Show(true);
+    gs_dialog->Show(false);
 
     return true;
 }
@@ -75,22 +73,22 @@ wxBEGIN_EVENT_TABLE(MyDialog, wxDialog)
 wxEND_EVENT_TABLE()
 
 
-MyDialog::MyDialog(const wxString& title)
-        : wxDialog(NULL, wxID_ANY, title)
-{
+MyDialog::MyDialog(const wxString& title): wxDialog(NULL, wxID_ANY, title) {
+    timer = new timer_();
     wxSizer* const sizerTop = new wxBoxSizer(wxVERTICAL);
     wxSizerFlags flags;
     flags.Border(wxALL, 10);
-    grid = new wxGrid(this, -1, wxPoint(0, 0), wxSize(400, 300));
+    grid = new wxGrid(this, -1, wxPoint(0, 0), wxSize(400, 280));
     grid->CreateGrid(0, 2);
     grid->SetColLabelValue(0, _("Title"));
     grid->SetColLabelValue(1, _("Username"));
-    grid->SetMinSize(wxSize(400, 280));
+    grid->SetMinSize(wxSize(400, 200));
     grid->SetColSize(0, 150);
     grid->SetColSize(1, 150);
     grid->SetSelectionMode(wxGrid::wxGridSelectRows);
-    //grid->SetEditable(false);
+    grid->EnableEditing(false);
     grid->AutoSizeRows();
+    grid->DisableDragRowSize();
     grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MyDialog::OnCellClick);
     sizerTop->Add(grid, flags.Align(wxALIGN_CENTRE));
     search_input = new wxTextCtrl(this, -1, "", wxDefaultPosition);
@@ -104,19 +102,12 @@ MyDialog::MyDialog(const wxString& title)
     Centre();
     m_taskBarIcon = new MyTaskBarIcon();
     if (!m_taskBarIcon->SetIcon(wxICON(key), "Password Manager")) { wxLogError(wxT("Could not set icon.")); }
-
-#if defined(__WXOSX__) && wxOSX_USE_COCOA
-    m_dockIcon = new MyTaskBarIcon(wxTBI_DOCK);
-    if ( !m_dockIcon->SetIcon(wxICON(key)) )
-    {
-        wxLogError("Could not set icon.");
-    }
-#endif
 }
 
 MyDialog::~MyDialog()
 {
     delete m_taskBarIcon;
+    delete timer;
 }
 
 std::string wx_to_string(wxString wx_string) {
@@ -142,7 +133,7 @@ static int callback(void* data, int argc, char** argv, char** azColName) {
     int i;
     bool found = false;
     for (i = 0; i < argc; i++) {
-        // printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+        //printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL"); 
         if (getPassword == false) {
             if (strcmp(azColName[i], "RED") == 0) {
                 grid->AppendRows(1);
@@ -158,8 +149,7 @@ static int callback(void* data, int argc, char** argv, char** azColName) {
                     my_decrypt(std::string(argv[i]));
                 }
                 catch (const CryptoPP::Exception& exception) {
-                    std::cout << "Caught exception: " << exception.what() << '\n';
-                    wxMessageBox("The key entered is incorrect - restart application", "Error", wxOK | wxICON_EXCLAMATION);
+                    wxMessageBox("The key entered is incorrect. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
                     gs_dialog->Destroy();
                     return -1;
                 }
@@ -168,8 +158,7 @@ static int callback(void* data, int argc, char** argv, char** azColName) {
                     gs_dialog->Show(false);
                     wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(test.c_str())));
                     wxTheClipboard->Close();
-                    timer_* timer = new timer_();
-                    timer->start();
+                    timer->start();    
                 }
             }
         }
@@ -180,11 +169,8 @@ static int callback(void* data, int argc, char** argv, char** azColName) {
 void displayData() {
     rc = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", callback, (void*)data, &zErrMsg);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        wxMessageBox("Database error in display data func.", "Error", wxOK | wxICON_EXCLAMATION);
         sqlite3_free(zErrMsg);
-    }
-    else {
-        //fprintf(stdout, "Operation done successfully\n");
     }
 }
 
@@ -210,9 +196,37 @@ void MyDialog::OnSearch(wxCommandEvent& event) {
 
 void MyDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
     wxString title = wxGetTextFromUser("Title:", "Enter new entry details", wxEmptyString);
+    if (title == wxEmptyString) {
+        wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+        return;
+    }
     wxString user = wxGetTextFromUser("Username:", "Enter new entry details", wxEmptyString);
-    wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
-    std::string plaintext = wx_to_string(pass), ciphertext, recovered;
+    if (user == wxEmptyString) {
+        wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+        return;
+    }
+    std::string plaintext, ciphertext, recovered;  
+    wxMessageDialog* dial = new wxMessageDialog(NULL,
+        wxT("Do you want to auto-generate password?"), wxT("Password Creation"),
+        wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+    int res = dial->ShowModal();
+    dial->Destroy();
+    if (res == wxID_YES) {
+        char temp[17];
+        for (int i = 0; i < 16; i++) {
+            temp[i] = alphanum[rand() % string_length];
+        }
+        temp[16] = NULL;
+        plaintext = temp;
+    }
+    else {
+        wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
+        if (pass == wxEmptyString) {
+            wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+            return;
+        }
+        plaintext = wx_to_string(pass);
+    }
     CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
     encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
     CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
@@ -226,11 +240,8 @@ void MyDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
     std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + wx_to_string(title) + "', '" + wx_to_string(user) + "', '" + cipher + "');";
     rc = sqlite3_exec(db, stmt.c_str(), callback, 0, &zErrMsg);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
         sqlite3_free(zErrMsg);
-    }
-    else {
-        //fprintf(stdout, "Operation done successfully\n");
     }
     if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
     displayData();
@@ -251,7 +262,6 @@ void MyDialog::OnExit(wxCommandEvent& WXUNUSED(event)) {
 
 void MyDialog::OnCloseWindow(wxCloseEvent& WXUNUSED(event)) {
     Show(false);
-    //Destroy();
 }
 
 enum { PU_EXIT };
@@ -265,7 +275,6 @@ void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 {
     sqlite3_close(db);
     gs_dialog->Destroy();
-    //gs_dialog->Close(true);
 }
 
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
@@ -286,6 +295,7 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
             master_key = wx_to_string(pwd);
             CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> kdf;
             kdf.DeriveKey(derived.data(), derived.size(), purpose, (CryptoPP::byte*)master_key.data(), master_key.size(), NULL, 0, iterations);
+            master_key = "NotAnEmptyString";
             displayData();
             search_input->SetFocus();
             return;
