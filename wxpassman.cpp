@@ -287,8 +287,20 @@ wxMenu *MyTaskBarIcon::CreatePopupMenu()
 void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
 {
     gs_dialog->Show(true);
+    gs_dialog->Raise();
     if (master_key.compare("") == 0) {
-        wxString pwd = wxGetPasswordFromUser("Enter key:", "Password Manager", wxEmptyString);
+        wxString pwd; // = wxGetPasswordFromUser("Enter key:", "Password Manager", wxEmptyString);
+        wxTextEntryDialog* dlg = new wxTextEntryDialog(gs_dialog, "Password Manager", "Enter your password", "", wxOK | wxCANCEL | wxCENTRE | wxTE_PASSWORD);
+        if (dlg->ShowModal() == wxID_OK)
+        {
+            pwd = dlg->GetValue();
+        }
+        else
+        {
+            wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
+            gs_dialog->Show(false);
+        }
+        dlg->Destroy();
         if (!pwd.empty()) {
             unsigned int iterations = 15000;
             char purpose = 0;
