@@ -275,6 +275,7 @@ void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 {
     sqlite3_close(db);
     gs_dialog->Destroy();
+    timer = new timer_();
 }
 
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
@@ -299,6 +300,8 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
         {
             wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
             gs_dialog->Show(false);
+            dlg->Destroy();
+            return;
         }
         dlg->Destroy();
         if (!pwd.empty()) {
