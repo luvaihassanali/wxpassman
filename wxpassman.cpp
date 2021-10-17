@@ -268,7 +268,7 @@ enum { PU_EXIT };
 
 wxBEGIN_EVENT_TABLE(MyTaskBarIcon, wxTaskBarIcon)
     EVT_MENU(PU_EXIT, MyTaskBarIcon::OnMenuExit)
-    EVT_TASKBAR_LEFT_DCLICK(MyTaskBarIcon::OnLeftButtonDClick)
+    EVT_TASKBAR_LEFT_DOWN(MyTaskBarIcon::OnLeftButtonDClick)
 wxEND_EVENT_TABLE()
 
 void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
@@ -298,7 +298,7 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
         }
         else
         {
-            wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
+            wxMessageBox("Minimizing to taskbar", "Info", wxOK | wxICON_EXCLAMATION);
             gs_dialog->Show(false);
             dlg->Destroy();
             return;
@@ -315,7 +315,7 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
             search_input->SetFocus();
             return;
         }
-        wxMessageBox("Minimizing to taskbar", "Error", wxOK | wxICON_EXCLAMATION);
+        wxMessageBox("Password empty. Minimizing to taskbar.", "Error", wxOK | wxICON_EXCLAMATION);
         gs_dialog->Show(false);
     }
     search_input->SetFocus();
