@@ -299,7 +299,7 @@ void MyTaskBarIcon::OnLeftButtonDClick(wxTaskBarIconEvent&)
         {
             wxMessageBox("Minimizing to taskbar", "Info", wxOK | wxICON_EXCLAMATION);
             gs_dialog->Show(false);
-            dlg->Destroy();
+            //dlg->Destroy();
             return;
         }
         dlg->Destroy();
