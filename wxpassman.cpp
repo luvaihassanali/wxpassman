@@ -46,7 +46,7 @@ wxIMPLEMENT_APP(MyApp);
 bool MyApp::OnInit()
 {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-    _CrtSetBreakAlloc(6818);
+
     if (!wxApp::OnInit()) return false;
 
     if(!wxTaskBarIcon::IsAvailable()) {
