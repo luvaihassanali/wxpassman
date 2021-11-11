@@ -22,9 +22,9 @@
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
 
-//#define _CRTDBG_MAP_ALLOC
-//#include <stdlib.h>
-//#include <crtdbg.h>
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
 
 static MyDialog *gs_dialog = NULL;
 std::string master_key = "";
@@ -45,8 +45,8 @@ wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit()
 {
-    //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetBreakAlloc(6818);
     if (!wxApp::OnInit()) return false;
 
     if(!wxTaskBarIcon::IsAvailable()) {
@@ -275,7 +275,6 @@ void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 {
     sqlite3_close(db);
     gs_dialog->Destroy();
-    timer = new timer_();
 }
 
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
