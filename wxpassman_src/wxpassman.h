@@ -1,7 +1,7 @@
 class timer_ : public wxTimer {
 public:
     timer_() :wxTimer() {}
-    void Notify() { /*wxTheClipboard->Clear();*/ }
+    void Notify() { wxTheClipboard->Clear(); }
     void start() { wxTimer::StartOnce(3000); }
 };
 
@@ -18,8 +18,6 @@ public:
     wxDECLARE_EVENT_TABLE();
 };
 
-
-// Define a new application
 class MyApp : public wxApp
 {
 public:

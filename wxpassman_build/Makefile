@@ -20,10 +20,10 @@ TOOLKIT = OSX_COCOA
 TOOLKIT_LOWERCASE = osx_cocoa
 TOOLKIT_VERSION = 
 TOOLCHAIN_FULLNAME = osx_cocoa-unicode-3.1
-EXTRALIBS =   -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL  -framework Security -lpthread -liconv 
+EXTRALIBS =   -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL  -framework Security -lpthread -liconv -lsqlite3
 EXTRALIBS_XML =  -lexpat
 EXTRALIBS_GUI = -framework WebKit
-WX_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -I${wx_top_builddir}/lib/wx/include/osx_cocoa-unicode-3.1 -I${top_srcdir}/include 
+WX_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -I${wx_top_builddir}/lib/wx/include/osx_cocoa-unicode-3.1 -I${top_srcdir}/include -I${srcdir}/sqlite3-3.35.2
 WX_CXXFLAGS = -Wall -Wundef -Wunused-parameter -Wno-ctor-dtor-privacy -Woverloaded-virtual -Wno-deprecated-declarations -O2 -fno-common  -fvisibility=hidden -fvisibility-inlines-hidden
 WX_LDFLAGS =  -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL 
 HOST_SUFFIX = 

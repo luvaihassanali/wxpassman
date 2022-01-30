@@ -18,12 +18,13 @@
 #include "wx/taskbar.h"
 
 #include "wxpassman.h"
+#include "./sqlite3-3.35.2/sqlite3.h"
 
 static MyDialog* gs_dialog = NULL;
 std::string master_key = "";
 wxGrid* grid;
 wxTextCtrl* search_input;
-//sqlite3* db;
+sqlite3* db;
 char* zErrMsg = 0;
 int rc;
 char* sql;
@@ -46,6 +47,12 @@ bool MyApp::OnInit()
 		return false;
 	}
 
+	rc = sqlite3_open_v2("./data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	if (rc != SQLITE_OK) {
+		wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
+		return false;
+	}
+    
     gs_dialog = new MyDialog("Password Manager");
     gs_dialog->Show(false);
     gs_dialog->SetIcon(wxICON(sample));
@@ -140,7 +147,7 @@ void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
 {
     wxMenu *menu = new wxMenu;
-    menu->Append(PU_RESTORE, "&Restore main window");
+    menu->Append(PU_RESTORE, "Show");
 
     /* OSX has built-in quit menu for the dock menu, but not for the status item */
 #ifdef __WXOSX__
@@ -148,7 +155,7 @@ wxMenu *MyTaskBarIcon::CreatePopupMenu()
 #endif
     {
         menu->AppendSeparator();
-        menu->Append(PU_EXIT,    "E&xit");
+        menu->Append(PU_EXIT,    "Exit");
     }
     return menu;
 }
