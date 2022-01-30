@@ -1,4 +1,7 @@
 # Prerequisites
+.DS_Store
+Wxpassman
+
 *.d
 
 # Compiled Object files
