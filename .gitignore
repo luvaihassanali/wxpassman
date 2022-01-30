@@ -1,4 +1,2 @@
-# Visual studio output folders
-vc_mswu_x64/
-vc_mswud_x64/
-.vs/
+wxpassman_build/*
+!wxpassman/Makefile
