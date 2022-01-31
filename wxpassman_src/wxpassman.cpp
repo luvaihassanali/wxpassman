@@ -76,7 +76,7 @@ wxEND_EVENT_TABLE()
 
 
 MyDialog::MyDialog(const wxString& title)
-        : wxDialog(NULL, wxID_ANY, title)
+        : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735))
 {
     timer = new timer_();
 	wxSizer* const sizerTop = new wxBoxSizer(wxVERTICAL);
@@ -105,7 +105,7 @@ MyDialog::MyDialog(const wxString& title)
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
 	SetSizerAndFit(sizerTop);
-	Centre();
+	//Centre(wxHORIZONTAL);
 	m_taskBarIcon = new MyTaskBarIcon();
 	if (!m_taskBarIcon->SetIcon(icon, "Password Manager")) { wxLogError(wxT("Could not set icon.")); }
 
@@ -302,8 +302,9 @@ wxEND_EVENT_TABLE()
 
 void MyTaskBarIcon::OnMenuRestore(wxCommandEvent& )
 {
-    gs_dialog->Show(true);
+	gs_dialog->SetFocus();
     gs_dialog->Raise();
+    gs_dialog->Show(true);
 	if (master_key.compare("") == 0) {
 		wxString pwd; // = wxGetPasswordFromUser("Enter key:", "Password Manager", wxEmptyString);
 		wxTextEntryDialog* dlg = new wxTextEntryDialog(gs_dialog, "Password Manager", "Enter your password", "", wxOK | wxCANCEL | wxCENTRE | wxTE_PASSWORD);
