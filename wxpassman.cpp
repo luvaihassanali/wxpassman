@@ -21,6 +21,10 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
+#include <fstream>
+#include <iostream>
+#include <ios>
+#include <cstdio>
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -74,35 +78,9 @@ EVT_CLOSE(MyDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
 void BackupData() {
-	std::string path = "C:\\Users\\luv\\Documents\\";
-	std::string strSearch = path + "data*";
-	WIN32_FIND_DATAA findData;
-	HANDLE hFind = FindFirstFileA(strSearch.c_str(), &findData);
-	std::string fileName;
-	do { fileName = findData.cFileName; } while (FindNextFileA(hFind, &findData) != 0);
-	if (fileName.empty() || fileName.length() == 0) {
-		wxMessageBox("No backup file found.", "Error", wxOK | wxICON_EXCLAMATION);
-		return;
-	}
-	std::string delimiter = ".";
-	std::string token = fileName.substr(0, fileName.find(delimiter));
-	std::string numStr = token.substr(4, token.length());
-	int currVer = std::stoi(numStr);
-	currVer++;
-
-	std::string existingFile = path + fileName;
-	const char* charExistingFilePath = existingFile.c_str();
-	remove(charExistingFilePath);
-
-	std::string newName = "data" + std::to_string(currVer) + ".db";
-	std::string newFile = path + newName;
-	std::string oldFile = ".\\data.db";
-	std::wstring oldTemp = std::wstring(oldFile.begin(), oldFile.end());
-	LPCWSTR ot = oldTemp.c_str();
-	std::wstring newTemp = std::wstring(newFile.begin(), newFile.end());
-	LPCWSTR nt = newTemp.c_str();
-	CopyFile(ot, nt, FALSE);
-	
+    std::ifstream in("data.db", std::ios::in | std::ios::binary);
+	std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
+	out << in.rdbuf();	
 }
 
 MyDialog::MyDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) {
