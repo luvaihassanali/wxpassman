@@ -21,10 +21,10 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
-#include <fstream>
-#include <iostream>
-#include <ios>
-#include <cstdio>
+//#include <fstream>
+//#include <iostream>
+//#include <ios>
+//#include <cstdio>
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -59,7 +59,7 @@ bool MyApp::OnInit()
 		return false;
 	}
 
-	rc = sqlite3_open_v2("./data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	rc = sqlite3_open_v2("D://data.db", &db, SQLITE_OPEN_READWRITE, NULL);
 	if (rc != SQLITE_OK) {
 		wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
 		return false;
@@ -78,9 +78,9 @@ EVT_CLOSE(MyDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
 void BackupData() {
-    std::ifstream in("data.db", std::ios::in | std::ios::binary);
-	std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
-	out << in.rdbuf();	
+    //std::ifstream in("data.db", std::ios::in | std::ios::binary);
+	//std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
+	//out << in.rdbuf();	
 }
 
 MyDialog::MyDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) {
@@ -256,7 +256,7 @@ void MyDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 	}
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
 	displayData();
-	BackupData();
+	//BackupData();
 }
 
 void MyDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
@@ -266,7 +266,7 @@ void MyDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
 	rc = sqlite3_exec(db, stmt.c_str(), callback, 0, &zErrMsg);
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
 	displayData();
-	BackupData();
+	//BackupData();
 }
 
 void MyDialog::OnExit(wxCommandEvent& WXUNUSED(event)) {
