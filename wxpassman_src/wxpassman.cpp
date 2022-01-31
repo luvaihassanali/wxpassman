@@ -8,11 +8,6 @@
     #include "wx/wx.h"
 #endif
 
-// the application icon (under Windows it is in resources)
-#ifndef wxHAS_IMAGES_IN_RESOURCES
-    #include "key.xpm"
-#endif
-
 #include <../cryptopp/cryptlib.h>
 #include <../cryptopp/aes.h>
 #include <../cryptopp/modes.h>
@@ -22,6 +17,7 @@
 #include <../cryptopp/hex.h>
 #include <../cryptopp/sha.h>
 #include "wx/clipbrd.h"
+#include <wx/font.h>
 #include "wx/grid.h"
 #include "wx/taskbar.h"
 #include "wxpassman.h"
@@ -55,7 +51,7 @@ bool MyApp::OnInit()
 		return false;
 	}
 
-	rc = sqlite3_open_v2("./data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	rc = sqlite3_open_v2("/Volumes/HDD/data.db", &db, SQLITE_OPEN_READWRITE, NULL);
 	if (rc != SQLITE_OK) {
 		wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
 		return false;
@@ -90,7 +86,8 @@ MyDialog::MyDialog(const wxString& title)
 	grid->CreateGrid(0, 2);
 	grid->SetColLabelValue(0, _("Title"));
 	grid->SetColLabelValue(1, _("Username"));
-	//grid->SetFont?
+	wxFont f(wxFontInfo(12).FaceName("Courier"));
+	grid->SetLabelFont(f);
 	grid->SetMinSize(wxSize(400, 200));
 	grid->SetColSize(0, 150);
 	grid->SetColSize(1, 150);
@@ -345,13 +342,11 @@ void MyTaskBarIcon::OnMenuExit(wxCommandEvent& )
 	gs_dialog->Destroy();
 }
 
-// Overridables
 wxMenu *MyTaskBarIcon::CreatePopupMenu()
 {
     wxMenu *menu = new wxMenu;
     menu->Append(PU_RESTORE, "Show");
 
-    /* OSX has built-in quit menu for the dock menu, but not for the status item */
 #ifdef __WXOSX__
     if ( OSXIsStatusItem() )
 #endif
