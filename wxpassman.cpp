@@ -78,11 +78,6 @@ EVT_BUTTON(wxID_HIGHEST + 2, MainDialog::OnDelete)
 EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
-void BackupData() {
-	//std::ifstream in("data.db", std::ios::in | std::ios::binary);
-	//std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
-	//out << in.rdbuf();	
-}
 
 MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) {
 	timer = new timer_();
@@ -113,7 +108,6 @@ MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) 
 	Centre();
 	taskBarIcon = new TaskBarIcon();
 	if (!taskBarIcon->SetIcon(wxICON(key), "Password Manager")) { wxLogError(wxT("Could not set icon.")); }
-	//BackupData();
 }
 
 MainDialog::~MainDialog()
@@ -157,21 +151,18 @@ static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) 
 		}
 		if (strcmp(azColName[i], "GREEN") == 0) {
 			if (decryptPassword == true) {
-				try {
-					Decrypt(std::string(argv[i]));
+				if (verifyPassword) {
+					try {
+						Decrypt(std::string(argv[i]));
+					}
+					catch (const CryptoPP::Exception& exception) {
+						wxMessageBox("The key entered is incorrect. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
+						mainDialog->Destroy();
+						return -1;
+					}
+					return 0;
 				}
-				catch (const CryptoPP::Exception& exception) {
-					wxMessageBox("The key entered is incorrect. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
-					mainDialog->Destroy();
-					return -1;
-				}
-				if (!verifyPassword) {
-					std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(0, 0)));
-					decryptPassword = true;
-					std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
-					sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void*)sqlData, &sqlErrMsg);
-					decryptPassword = false;
-				}
+
 				std::string secret = Decrypt(std::string(argv[i]));
 				if (wxTheClipboard->Open()) {
 					mainDialog->Show(false);
@@ -276,7 +267,6 @@ void MainDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 	}
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
 	DisplayData();
-	//BackupData();
 }
 
 void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
@@ -286,7 +276,6 @@ void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
 	DisplayData();
-	//BackupData();
 }
 
 void MainDialog::OnExit(wxCommandEvent& WXUNUSED(event)) {
@@ -322,7 +311,7 @@ void TaskBarIcon::OnLeftButtonClick(wxTaskBarIconEvent&)
 	mainDialog->Show(true);
 	mainDialog->Raise();
 	if (masterKey.compare("") == 0) {
-		wxString pwd; // = wxGetPasswordFromUser("Enter key:", "Password Manager", wxEmptyString);
+		wxString pwd;
 		wxTextEntryDialog* dlg = new wxTextEntryDialog(mainDialog, "Password Manager", "Enter your password", "", wxOK | wxCANCEL | wxCENTRE | wxTE_PASSWORD);
 		if (dlg->ShowModal() == wxID_OK)
 		{
@@ -351,4 +340,11 @@ void TaskBarIcon::OnLeftButtonClick(wxTaskBarIconEvent&)
 		mainDialog->Show(false);
 	}
 	searchInput->SetFocus();
+}
+
+void BackupData()
+{
+	//std::ifstream in("data.db", std::ios::in | std::ios::binary);
+	//std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
+	//out << in.rdbuf();	
 }

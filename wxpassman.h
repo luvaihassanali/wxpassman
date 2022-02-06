@@ -1,4 +1,5 @@
-class timer_ : public wxTimer {
+class timer_ : public wxTimer
+{
 public:
     timer_() :wxTimer() {}
     void Notify() { wxTheClipboard->Clear(); }
@@ -8,9 +9,9 @@ public:
 class TaskBarIcon : public wxTaskBarIcon
 {
 public:
-    TaskBarIcon(){}
+    TaskBarIcon() {}
     void OnLeftButtonClick(wxTaskBarIconEvent&);
-    void OnMenuExit(wxCommandEvent&);
+void OnMenuExit(wxCommandEvent&);
     virtual wxMenu *CreatePopupMenu() wxOVERRIDE;
     wxDECLARE_EVENT_TABLE();
 };
