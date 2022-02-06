@@ -23,6 +23,13 @@
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
 
+const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const int alphanumLength = sizeof(alphanum) - 1;
+const char* sqlData = "SQL SELECT:\n";
+
+bool decryptPassword = false;
+bool verifyPassword = false;
+char* sqlErrMsg = 0;
 CryptoPP::SecByteBlock derived(32);
 MainDialog* mainDialog = NULL;
 int sqlReturnCode;
@@ -30,6 +37,7 @@ sqlite3* db;
 std::string masterKey = "";
 timer_* timer;
 wxGrid* grid;
+wxIcon icon;
 wxTextCtrl* searchInput;
 
 wxIMPLEMENT_APP(wxPassman);
@@ -52,20 +60,20 @@ bool wxPassman::OnInit()
     wxImage::AddHandler( new wxPNGHandler );
 	icon.LoadFile (wxT("key.png"), wxBITMAP_TYPE_PNG);
 	mainDialog = new MainDialog("Password Manager");
-	mainDialog->SetIcon(wxICON(key));
+	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
 	return true;
 }
 
-wxBEGIN_EVENT_TABLE(MyDialog, wxDialog)
-    EVT_BUTTON(wxID_HIGHEST + 1, MyDialog::OnNew)
-    EVT_BUTTON(wxID_HIGHEST + 2, MyDialog::OnDelete)
-    EVT_BUTTON(wxID_EXIT, MyDialog::OnExit)
-    EVT_CLOSE(MyDialog::OnCloseWindow)
+wxBEGIN_EVENT_TABLE(MainDialog, wxDialog)
+    EVT_BUTTON(wxID_HIGHEST + 1, MainDialog::OnNew)
+    EVT_BUTTON(wxID_HIGHEST + 2, MainDialog::OnDelete)
+    EVT_BUTTON(wxID_EXIT, MainDialog::OnExit)
+    EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
 
-MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) {
+MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735)) {
 	timer = new timer_();
 	wxSizer* const sizerTop = new wxBoxSizer(wxVERTICAL);
 	wxSizerFlags flags;
@@ -83,18 +91,18 @@ MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) 
 	grid->EnableEditing(false);
 	grid->AutoSizeRows();
 	grid->DisableDragRowSize();
-	grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MyDialog::OnCellClick);
+	grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MainDialog::OnCellClick);
 	sizerTop->Add(grid, flags.Align(wxALIGN_CENTRE));
-	search_input = new wxTextCtrl(this, -1, "", wxDefaultPosition);
-	search_input->Bind(wxEVT_TEXT, MyDialog::OnSearch);
-	sizerTop->Add(search_input, 1, wxEXPAND | wxALL, 10);
+	searchInput = new wxTextCtrl(this, -1, "", wxDefaultPosition);
+	searchInput->Bind(wxEVT_TEXT, MainDialog::OnSearch);
+	sizerTop->Add(searchInput, 1, wxEXPAND | wxALL, 10);
 	wxSizer* const sizerBtns = new wxBoxSizer(wxHORIZONTAL);
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 1, wxT("&New")));
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
 	SetSizerAndFit(sizerTop);
 	//Centre(wxHORIZONTAL);
-	taskBarIcon = new MyTaskBarIcon();
+	taskBarIcon = new TaskBarIcon();
 	if (!taskBarIcon->SetIcon(icon, "Password Manager")) { wxLogError(wxT("Could not set icon.")); }
 }
 
@@ -257,7 +265,7 @@ void MainDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 	DisplayData();
 }
 
-void MyDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
+void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
 	wxString title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
 	std::string query = WxToString(title);
 	std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
@@ -284,7 +292,6 @@ enum
     PU_SUBMAIN
 };
 
-
 wxBEGIN_EVENT_TABLE(TaskBarIcon, wxTaskBarIcon)
     EVT_MENU(PU_RESTORE, TaskBarIcon::OnMenuRestore)
     EVT_MENU(PU_EXIT,    TaskBarIcon::OnMenuExit)
@@ -295,9 +302,9 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent& )
 	mainDialog->SetFocus();
     mainDialog->Raise();
     mainDialog->Show(true);
-	if (master_key.compare("") == 0) {
+	if (masterKey.compare("") == 0) {
 		wxString pwd;
-		wxTextEntryDialog* dlg = new wxTextEntryDialog(gs_dialog, "Password Manager", "Enter your password", "", wxOK | wxCANCEL | wxCENTRE | wxTE_PASSWORD);
+		wxTextEntryDialog* dlg = new wxTextEntryDialog(mainDialog, "Password Manager", "Enter your password", "", wxOK | wxCANCEL | wxCENTRE | wxTE_PASSWORD);
 		if (dlg->ShowModal() == wxID_OK)
 		{
 			pwd = dlg->GetValue();
@@ -327,9 +334,31 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent& )
 	searchInput->SetFocus();
 }
 
+void TaskBarIcon::OnMenuExit(wxCommandEvent& )
+{
+    sqlite3_close(db);
+	mainDialog->Destroy();
+}
+
 void BackupData()
 {
 	//std::ifstream in("data.db", std::ios::in | std::ios::binary);
 	//std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
 	//out << in.rdbuf();	
+}
+
+
+wxMenu *TaskBarIcon::CreatePopupMenu()
+{
+    wxMenu *menu = new wxMenu;
+    menu->Append(PU_RESTORE, "Show");
+
+#ifdef __WXOSX__
+    if (OSXIsStatusItem())
+#endif
+    {
+        menu->AppendSeparator();
+        menu->Append(PU_EXIT,    "Exit");
+    }
+    return menu;
 }
