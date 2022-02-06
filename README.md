@@ -5,12 +5,13 @@ https://docs.wxwidgets.org/trunk/plat_osx_install.html
 
 To hide in dock add key to wxpassman.app/Contents/Info.plist:
 ```
-<key>LSUIElement</key>
-<true/>
+	<key>LSUIElement</key>
+	<true/>
 ```
 
 Create ICNS from 1024x1024 png (must be renamed to wxmac.icns for build)
 https://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil
+```
 mkdir MyIcon.iconset
 sips -z 16 16     Icon1024.png --out MyIcon.iconset/icon_16x16.png
 sips -z 32 32     Icon1024.png --out MyIcon.iconset/icon_16x16@2x.png
@@ -24,3 +25,4 @@ sips -z 512 512   Icon1024.png --out MyIcon.iconset/icon_512x512.png
 cp Icon1024.png MyIcon.iconset/icon_512x512@2x.png
 iconutil -c icns MyIcon.iconset
 rm -R MyIcon.iconset
+```
