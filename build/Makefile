@@ -147,7 +147,7 @@ wxpassman$(EXEEXT): $(wxpassman_OBJECTS) $(__wxpassman___win32rc)
 	$(CXX) -o $@ $(wxpassman_OBJECTS)     -L$(LIBDIRNAME) $(LDFLAGS_GUI) $(SAMPLES_RPATH_FLAG) $(LDFLAGS)  $(WX_LDFLAGS) $(__WXLIB_CORE_p)  $(__WXLIB_BASE_p)  $(__WXLIB_MONO_p) $(__LIB_SCINTILLA_IF_MONO_p) $(__LIB_TIFF_p) $(__LIB_JPEG_p) $(__LIB_PNG_p)  $(EXTRALIBS_FOR_GUI) $(__LIB_ZLIB_p) $(__LIB_REGEX_p) $(__LIB_EXPAT_p) $(EXTRALIBS_FOR_BASE) $(LIBS)
 	$(__wxpassman___os2_emxbindcmd)
 
-wxpassman.app/Contents/PkgInfo: wxpassman$(EXEEXT) $(top_srcdir)/src/osx/carbon/Info.plist.in $(top_srcdir)/src/osx/carbon/wxmac.icns
+wxpassman.app/Contents/PkgInfo: wxpassman$(EXEEXT) $(top_srcdir)/src/osx/carbon/Info.plist.in $(srcdir)/wxmac.icns
 	mkdir -p wxpassman.app/Contents
 	mkdir -p wxpassman.app/Contents/MacOS
 	mkdir -p wxpassman.app/Contents/Resources
@@ -165,7 +165,7 @@ wxpassman.app/Contents/PkgInfo: wxpassman$(EXEEXT) $(top_srcdir)/src/osx/carbon/
 	ln -f wxpassman$(EXEEXT) wxpassman.app/Contents/MacOS/wxpassman
 	
 	
-	cp -f $(top_srcdir)/src/osx/carbon/wxmac.icns wxpassman.app/Contents/Resources/wxmac.icns
+	cp -f $(srcdir)/wxmac.icns wxpassman.app/Contents/Resources/wxmac.icns
 
 wxpassman_bundle: $(____wxpassman_BUNDLE_TGT_REF_DEP)
 
