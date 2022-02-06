@@ -2,38 +2,30 @@ class timer_ : public wxTimer {
 public:
     timer_() :wxTimer() {}
     void Notify() { wxTheClipboard->Clear(); }
-    void start() { wxTimer::StartOnce(3000); }
+    void Start() { wxTimer::StartOnce(3000); }
 };
 
-class MyTaskBarIcon : public wxTaskBarIcon
+class TaskBarIcon : public wxTaskBarIcon
 {
 public:
-#if defined(__WXOSX__) && wxOSX_USE_COCOA
-    MyTaskBarIcon(wxTaskBarIconType iconType = wxTBI_DEFAULT_TYPE)
-    :   wxTaskBarIcon(iconType)
-#else
-    MyTaskBarIcon()
-#endif
-    {}
-
-    void OnLeftButtonDClick(wxTaskBarIconEvent&);
+    TaskBarIcon(){}
+    void OnLeftButtonClick(wxTaskBarIconEvent&);
     void OnMenuExit(wxCommandEvent&);
     virtual wxMenu *CreatePopupMenu() wxOVERRIDE;
-
     wxDECLARE_EVENT_TABLE();
 };
 
-class MyApp : public wxApp
+class wxPassman : public wxApp
 {
 public:
     virtual bool OnInit() wxOVERRIDE;
 };
 
-class MyDialog: public wxDialog
+class MainDialog: public wxDialog
 {
 public:
-    MyDialog(const wxString& title);
-    virtual ~MyDialog();
+    MainDialog(const wxString& title);
+    virtual ~MainDialog();
 
 protected:
     void OnNew(wxCommandEvent& event);
@@ -42,10 +34,6 @@ protected:
     void OnCloseWindow(wxCloseEvent& event);
     static void OnSearch(wxCommandEvent& event);
     static void OnCellClick(wxGridEvent& event);
-    MyTaskBarIcon   *m_taskBarIcon;
-#if defined(__WXOSX__) && wxOSX_USE_COCOA
-    MyTaskBarIcon   *m_dockIcon;
-#endif
-
+    TaskBarIcon   *taskBarIcon;
     wxDECLARE_EVENT_TABLE();
 };
