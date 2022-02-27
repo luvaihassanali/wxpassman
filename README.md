@@ -3,7 +3,6 @@ Password Manager C++ using wxWidgets
 
 Tested using Arch Linux -required packages sqlite, wxwidget, crypto++ 
 
-Build commands I use:
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
