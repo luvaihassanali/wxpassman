@@ -22,7 +22,8 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
-#include "./ObjCFunc/ObjCCall.h"
+//#include "./ObjCFunc/ObjCCall.h"
+#include "./MyObject/MyObject-C-Interface.h"
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -104,8 +105,9 @@ EVT_BUTTON(wxID_EXIT, MainDialog::OnExit)
 EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
-MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735))
+MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735)), _impl ( NULL )
 {
+	_impl = new MyClassImpl();
 	clipboardTimer = new ClipboardTimer();
 	wxSizer *const sizerTop = new wxBoxSizer(wxVERTICAL);
 	wxSizerFlags flags;
@@ -142,6 +144,7 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 
 MainDialog::~MainDialog()
 {
+	if ( _impl ) { delete _impl; _impl = NULL; }
 	delete taskBarIcon;
 	delete clipboardTimer;
 	delete iconTimer;
@@ -354,9 +357,32 @@ void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
 	Show(false);
 }
 
-void MainDialog::ObCCall()  //Definition
+/*void MainDialog::ObCCall()  //Definition
 {
 	return ObjCCall::objectiveC_Call();  //Final Call  
+}*/
+
+/*int MainDialog::SomeMethod (void *objectiveCObject)
+{
+    // To invoke an Objective-C method from C++, use
+    // the C trampoline function
+    return MyObjectDoSomethingWith (objectiveCObject);
+}*/
+
+void MainDialog::doSomethingWithMyClass( void )
+{
+	_impl->init();
+	_myValue = 22;
+    int result = _impl->doSomethingWith( _myValue );
+	wxMessageBox(std::to_string(result), "Info", wxOK | wxICON_EXCLAMATION);
+    if ( result == cANSWER_TO_LIFE_THE_UNIVERSE_AND_EVERYTHING )
+    {
+        _impl->logMyMessage( "Hello, Arthur!" );
+    }
+    else
+    {
+        _impl->logMyMessage( "Don't worry." );
+    }
 }
 
 enum
@@ -421,9 +447,9 @@ void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &) {
 	{
 		wxLogError(wxT("Could not set icon."));
 	}
-
-	wxMessageBox("before", "Alert", wxOK | wxICON_EXCLAMATION);
-	MainDialog::ObCCall();
+    mainDialog->doSomethingWithMyClass();
+	//MainDialog::ObCCall();
+	//int test = MainDialog::SomeMethod(this);
 	//wxMessageBox(std::to_string(test), "Alert", wxOK | wxICON_EXCLAMATION);
 }
 

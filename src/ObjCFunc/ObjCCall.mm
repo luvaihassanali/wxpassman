@@ -7,3 +7,5 @@ void ObjCCall::objectiveC_Call()
 myClass *obj=[[myClass alloc]init]; //Allocating the new object for the objective C   class we created
 [obj hello:(100)];   //Calling the function we defined
 }
+
+// clang -c ObjCCall.mm
