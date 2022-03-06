@@ -22,6 +22,7 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
+#include "./ObjCFunc/ObjCCall.h"
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -67,7 +68,7 @@ bool wxPassman::OnInit()
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
 
-	time_t currTime = time(0);
+	/*time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
 	mktime(&tm_currTime);
@@ -80,7 +81,7 @@ bool wxPassman::OnInit()
 	mktime(&tm_midnightTime);
 
 	time_t midnightTime = mktime(&tm_midnightTime);
-	double diffSecs = difftime(midnightTime, currTime);
+	double diffSecs = difftime(midnightTime, currTime);*/
 
 	//std::string msg = std::to_string(tm_currTime.tm_year + 1900) + " " + std::to_string(tm_currTime.tm_mon + 1) + " " + std::to_string(tm_currTime.tm_mday) + " " + std::to_string(tm_currTime.tm_hour) + " " + std::to_string(tm_currTime.tm_min) + " " + std::to_string(tm_currTime.tm_sec);
 	//std::string msg2 = std::to_string(tm_midnightTime.tm_year + 1900) + " " + std::to_string(tm_midnightTime.tm_mon + 1) + " " + std::to_string(tm_midnightTime.tm_mday) + " " + std::to_string(tm_midnightTime.tm_hour) + " " + std::to_string(tm_midnightTime.tm_min) + " " + std::to_string(tm_midnightTime.tm_sec);
@@ -89,6 +90,10 @@ bool wxPassman::OnInit()
 
 	//iconTimer = new IconTimer();
 	//iconTimer->start(10000);
+
+    //char *p = (char *) malloc(12);
+    //p = 0; // the leak is here
+
 	return true;
 }
 
@@ -349,6 +354,11 @@ void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
 	Show(false);
 }
 
+void MainDialog::ObCCall()  //Definition
+{
+	return ObjCCall::objectiveC_Call();  //Final Call  
+}
+
 enum
 {
 	PU_RESTORE = 10001,
@@ -411,7 +421,10 @@ void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &) {
 	{
 		wxLogError(wxT("Could not set icon."));
 	}
-	NSImage::isTemplate();
+
+	wxMessageBox("before", "Alert", wxOK | wxICON_EXCLAMATION);
+	MainDialog::ObCCall();
+	//wxMessageBox(std::to_string(test), "Alert", wxOK | wxICON_EXCLAMATION);
 }
 
 void TaskBarIcon::OnMenuExit(wxCommandEvent &)

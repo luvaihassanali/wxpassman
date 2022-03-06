@@ -22,6 +22,8 @@ public:
     virtual ~MainDialog();
     TaskBarIcon   *taskBarIcon;
     static void ChangeIcon();
+    static void ObCCall();  //definition
+    //static int SomeMethod(void *objectiveCObject, void *aParameter);
 
 protected:
     void OnExit(wxCommandEvent& event);

@@ -24,7 +24,7 @@ TOOLCHAIN_FULLNAME = osx_cocoa-unicode-3.1
 EXTRALIBS =   -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL  -framework Security -lpthread -liconv -lcryptopp -L${cryptoppsrcdir} -lsqlite3
 EXTRALIBS_XML =  -lexpat
 EXTRALIBS_GUI = -framework WebKit
-WX_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -I${wx_top_builddir}/lib/wx/include/osx_cocoa-unicode-3.1 -I${top_srcdir}/include -I${srcdir}/sqlite3-3.35.2 -I${cryptoppsrcdir}
+WX_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -I${wx_top_builddir}/lib/wx/include/osx_cocoa-unicode-3.1 -I${top_srcdir}/include -I${srcdir}/sqlite3-3.35.2 -I${cryptoppsrcdir} 
 WX_CXXFLAGS = -Wall -Wundef -Wunused-parameter -Wno-ctor-dtor-privacy -Woverloaded-virtual -Wno-deprecated-declarations -O2 -fno-common  -fvisibility=hidden -fvisibility-inlines-hidden
 WX_LDFLAGS =  -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL 
 HOST_SUFFIX = 
@@ -144,7 +144,7 @@ distclean: clean
 	rm -f config.cache config.log config.status bk-deps bk-make-pch shared-ld-sh Makefile
 
 wxpassman$(EXEEXT): $(wxpassman_OBJECTS) $(__wxpassman___win32rc)
-	$(CXX) -o $@ $(wxpassman_OBJECTS)     -L$(LIBDIRNAME) $(LDFLAGS_GUI) $(SAMPLES_RPATH_FLAG) $(LDFLAGS)  $(WX_LDFLAGS) $(__WXLIB_CORE_p)  $(__WXLIB_BASE_p)  $(__WXLIB_MONO_p) $(__LIB_SCINTILLA_IF_MONO_p) $(__LIB_TIFF_p) $(__LIB_JPEG_p) $(__LIB_PNG_p)  $(EXTRALIBS_FOR_GUI) $(__LIB_ZLIB_p) $(__LIB_REGEX_p) $(__LIB_EXPAT_p) $(EXTRALIBS_FOR_BASE) $(LIBS)
+	$(CXX) -o $@ $(wxpassman_OBJECTS)     ${srcdir}/ObjCFunc/ObjCFunc.o ${srcdir}/ObjCFunc/ObjCCall.o -L$(LIBDIRNAME) $(LDFLAGS_GUI) $(SAMPLES_RPATH_FLAG) $(LDFLAGS)  $(WX_LDFLAGS) $(__WXLIB_CORE_p)  $(__WXLIB_BASE_p)  $(__WXLIB_MONO_p) $(__LIB_SCINTILLA_IF_MONO_p) $(__LIB_TIFF_p) $(__LIB_JPEG_p) $(__LIB_PNG_p)  $(EXTRALIBS_FOR_GUI) $(__LIB_ZLIB_p) $(__LIB_REGEX_p) $(__LIB_EXPAT_p) $(EXTRALIBS_FOR_BASE) $(LIBS)
 	$(__wxpassman___os2_emxbindcmd)
 
 wxpassman.app/Contents/PkgInfo: wxpassman$(EXEEXT) $(top_srcdir)/src/osx/carbon/Info.plist.in $(srcdir)/wxmac.icns
