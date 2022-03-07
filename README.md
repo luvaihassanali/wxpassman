@@ -2,6 +2,7 @@
 Password Manager C++ using wxWidgets 3.1.4
 
 https://docs.wxwidgets.org/trunk/plat_osx_install.html
+https://github.com/buelowp/sunset
 
 To hide in dock add key to wxpassman.app/Contents/Info.plist:
 ```
@@ -9,7 +10,7 @@ To hide in dock add key to wxpassman.app/Contents/Info.plist:
 	<true/>
 ```
 
-Create ICNS from 1024x1024 png (must be renamed to wxmac.icns for build)
+To create ICNS from 1024x1024 png (must be renamed to wxmac.icns for build):
 https://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil
 ```
 mkdir MyIcon.iconset

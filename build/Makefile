@@ -21,7 +21,7 @@ TOOLKIT = OSX_COCOA
 TOOLKIT_LOWERCASE = osx_cocoa
 TOOLKIT_VERSION = 
 TOOLCHAIN_FULLNAME = osx_cocoa-unicode-3.1
-EXTRALIBS =   -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL  -framework Security -lpthread -liconv -lcryptopp -L${cryptoppsrcdir} -lsqlite3
+EXTRALIBS =   -framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL  -framework Security -lpthread -liconv -lcryptopp -L${cryptoppsrcdir} -lsqlite3 -lsunset
 EXTRALIBS_XML =  -lexpat
 EXTRALIBS_GUI = -framework WebKit
 WX_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -I${wx_top_builddir}/lib/wx/include/osx_cocoa-unicode-3.1 -I${top_srcdir}/include -I${srcdir}/sqlite3-3.35.2 -I${cryptoppsrcdir} 

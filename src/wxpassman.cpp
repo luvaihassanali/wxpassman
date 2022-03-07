@@ -22,8 +22,11 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
-//#include "./ObjCFunc/ObjCCall.h"
-#include "./MyObject/MyObject-C-Interface.h"
+#include <sunset.h>
+
+#define LATITUDE 45.4127
+#define LONGITUDE -75.6887
+#define TIMEZONE -5 //DST_OFFSET
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -42,8 +45,61 @@ IconTimer *iconTimer;
 wxGrid *grid;
 wxIcon icon;
 wxTextCtrl *searchInput;
+SunSet sun;
+bool darkmode = false;
 
 wxIMPLEMENT_APP(wxPassman);
+
+void InitializeIconTimer() {
+	time_t currTime = time(0);
+	struct tm tm_currTime;
+	localtime_r(&currTime, &tm_currTime);
+	mktime(&tm_currTime);
+
+	struct tm tm_midnightTime;
+	localtime_r(&currTime, &tm_midnightTime);
+	tm_midnightTime.tm_sec = tm_midnightTime.tm_min = tm_midnightTime.tm_hour = 0;
+	mktime(&tm_midnightTime);
+
+	sun.setPosition(LATITUDE, LONGITUDE, TIMEZONE);
+    sun.setCurrentDate(tm_currTime.tm_year + 1900, tm_currTime.tm_mon + 1, tm_currTime.tm_mday);
+    sun.setTZOffset(TIMEZONE);
+
+    double sunrise = sun.calcSunrise();
+    double sunset = sun.calcSunset();
+    int moonphase = sun.moonPhase(std::time(nullptr));
+
+	time_t midnightTime = mktime(&tm_midnightTime);
+	time_t sunriseTime = midnightTime + (sunrise * 60);
+	time_t sunsetTime = midnightTime + (sunset * 60);
+
+    double sunriseDiff = difftime(sunriseTime, currTime);
+	double sunsetDiff = difftime(sunsetTime, currTime);
+
+    if (sunriseDiff < 0 && sunsetDiff < 0) { //after sunset before midnight
+		//add a day to sunset -> timer
+		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
+		sunriseDiff = difftime(sunriseTime, currTime);
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	} 
+	else if (sunriseDiff < 0) { //between sunrise and sunset
+        // set timer to sunset
+		iconTimer->start(sunsetDiff * 1000);
+		darkmode = false;
+	} else {
+		// set to sunrise
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	}
+
+	if(darkmode) {
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	} else {
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+    mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+}
 
 bool wxPassman::OnInit()
 {
@@ -69,31 +125,8 @@ bool wxPassman::OnInit()
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
 
-	/*time_t currTime = time(0);
-	struct tm tm_currTime;
-	localtime_r(&currTime, &tm_currTime);
-	mktime(&tm_currTime);
-
-	struct tm tm_midnightTime;
-	localtime_r(&currTime, &tm_midnightTime);
-	tm_midnightTime.tm_sec = 0;
-	tm_midnightTime.tm_min = 59;
-	tm_midnightTime.tm_hour = 23;
-	mktime(&tm_midnightTime);
-
-	time_t midnightTime = mktime(&tm_midnightTime);
-	double diffSecs = difftime(midnightTime, currTime);*/
-
-	//std::string msg = std::to_string(tm_currTime.tm_year + 1900) + " " + std::to_string(tm_currTime.tm_mon + 1) + " " + std::to_string(tm_currTime.tm_mday) + " " + std::to_string(tm_currTime.tm_hour) + " " + std::to_string(tm_currTime.tm_min) + " " + std::to_string(tm_currTime.tm_sec);
-	//std::string msg2 = std::to_string(tm_midnightTime.tm_year + 1900) + " " + std::to_string(tm_midnightTime.tm_mon + 1) + " " + std::to_string(tm_midnightTime.tm_mday) + " " + std::to_string(tm_midnightTime.tm_hour) + " " + std::to_string(tm_midnightTime.tm_min) + " " + std::to_string(tm_midnightTime.tm_sec);
-
-	//wxMessageBox(std::to_string(diffSecs), "Alert", wxOK | wxICON_EXCLAMATION);
-
-	//iconTimer = new IconTimer();
-	//iconTimer->start(10000);
-
-    //char *p = (char *) malloc(12);
-    //p = 0; // the leak is here
+	iconTimer = new IconTimer();
+    InitializeIconTimer();
 
 	return true;
 }
@@ -105,9 +138,8 @@ EVT_BUTTON(wxID_EXIT, MainDialog::OnExit)
 EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
-MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735)), _impl ( NULL )
+MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735))
 {
-	_impl = new MyClassImpl();
 	clipboardTimer = new ClipboardTimer();
 	wxSizer *const sizerTop = new wxBoxSizer(wxVERTICAL);
 	wxSizerFlags flags;
@@ -144,15 +176,9 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 
 MainDialog::~MainDialog()
 {
-	if ( _impl ) { delete _impl; _impl = NULL; }
 	delete taskBarIcon;
 	delete clipboardTimer;
 	delete iconTimer;
-}
-
-void MainDialog::ChangeIcon()
-{
-	wxMessageBox("Check", "Alert", wxOK | wxICON_EXCLAMATION);
 }
 
 std::string WxToString(wxString wx_string)
@@ -252,6 +278,16 @@ void VerifyKey()
 	}
 }
 
+void MainDialog::ResetIconTimer() {
+	if(darkmode) {
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	} else {
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+    InitializeIconTimer();
+}
+
 void MainDialog::OnCellClick(wxGridEvent &event)
 {
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
@@ -290,9 +326,7 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 		return;
 	}
 	std::string plaintext, ciphertext, recovered;
-	wxMessageDialog *dial = new wxMessageDialog(NULL,
-												wxT("Do you want to auto-generate password?"), wxT("Password Creation"),
-												wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+	wxMessageDialog *dial = new wxMessageDialog(NULL, wxT("Do you want to auto-generate password?"), wxT("Password Creation"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 	int res = dial->ShowModal();
 	dial->Destroy();
 	if (res == wxID_YES)
@@ -357,34 +391,6 @@ void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
 	Show(false);
 }
 
-/*void MainDialog::ObCCall()  //Definition
-{
-	return ObjCCall::objectiveC_Call();  //Final Call  
-}*/
-
-/*int MainDialog::SomeMethod (void *objectiveCObject)
-{
-    // To invoke an Objective-C method from C++, use
-    // the C trampoline function
-    return MyObjectDoSomethingWith (objectiveCObject);
-}*/
-
-void MainDialog::doSomethingWithMyClass( void )
-{
-	_impl->init();
-	_myValue = 22;
-    int result = _impl->doSomethingWith( _myValue );
-	wxMessageBox(std::to_string(result), "Info", wxOK | wxICON_EXCLAMATION);
-    if ( result == cANSWER_TO_LIFE_THE_UNIVERSE_AND_EVERYTHING )
-    {
-        _impl->logMyMessage( "Hello, Arthur!" );
-    }
-    else
-    {
-        _impl->logMyMessage( "Don't worry." );
-    }
-}
-
 enum
 {
 	PU_RESTORE = 10001,
@@ -442,15 +448,14 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent &)
 }
 
 void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &) {
-	icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	if (!this->SetIcon(icon, "Password Manager"))
-	{
-		wxLogError(wxT("Could not set icon."));
+	if(darkmode) {
+		darkmode = false;
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	} else {
+		darkmode = true;
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	}
-    mainDialog->doSomethingWithMyClass();
-	//MainDialog::ObCCall();
-	//int test = MainDialog::SomeMethod(this);
-	//wxMessageBox(std::to_string(test), "Alert", wxOK | wxICON_EXCLAMATION);
+	this->SetIcon(icon, "Password Manager");
 }
 
 void TaskBarIcon::OnMenuExit(wxCommandEvent &)

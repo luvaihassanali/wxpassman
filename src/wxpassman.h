@@ -15,30 +15,22 @@ public:
     virtual bool OnInit() wxOVERRIDE;
 };
 
-class MyClassImpl;
-
 class MainDialog: public wxDialog
 {
-    enum { cANSWER_TO_LIFE_THE_UNIVERSE_AND_EVERYTHING = 42 };
 public:
     MainDialog(const wxString& title);
     virtual ~MainDialog();
     TaskBarIcon   *taskBarIcon;
-    static void ChangeIcon();
-    //static void ObCCall();  //definition
-    void doSomethingWithMyClass( void );
+    static void ResetIconTimer();
 
 protected:
     void OnExit(wxCommandEvent& event);
     void OnCloseWindow(wxCloseEvent& event);
     void OnNew(wxCommandEvent& event);
-    void OnDelete(wxCommandEvent& event);    
+    void OnDelete(wxCommandEvent& event);   
     static void OnSearch(wxCommandEvent& event);
     static void OnCellClick(wxGridEvent& event);
     wxDECLARE_EVENT_TABLE();
-private:
-    MyClassImpl * _impl;
-    int           _myValue;
 };
 
 class ClipboardTimer : public wxTimer
@@ -53,7 +45,6 @@ class IconTimer : public wxTimer
 {
 public:
     IconTimer() :wxTimer() {}
-    void Notify() { MainDialog::ChangeIcon(); }
-    void start(int millis) { wxTimer::Start(millis); }
-    void Reset() { wxTimer::Stop(); }
+    void Notify() { MainDialog::ResetIconTimer(); }
+    void start(int millis) { wxTimer::StartOnce(millis); }
 };
