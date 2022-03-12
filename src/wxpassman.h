@@ -21,6 +21,7 @@ public:
     MainDialog(const wxString& title);
     virtual ~MainDialog();
     TaskBarIcon   *taskBarIcon;
+    static void InitializeIconTimer();
     static void ResetIconTimer();
 
 protected:

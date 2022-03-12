@@ -23,10 +23,12 @@
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
 #include <sunset.h>
+#include <chrono>
+#include <thread>
 
 #define LATITUDE 45.4127
 #define LONGITUDE -75.6887
-#define TIMEZONE -5 //DST_OFFSET
+#define TIMEZONE -5 // DST_OFFSET
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -50,61 +52,12 @@ bool darkmode = false;
 
 wxIMPLEMENT_APP(wxPassman);
 
-void InitializeIconTimer() {
-	time_t currTime = time(0);
-	struct tm tm_currTime;
-	localtime_r(&currTime, &tm_currTime);
-	mktime(&tm_currTime);
-
-	struct tm tm_midnightTime;
-	localtime_r(&currTime, &tm_midnightTime);
-	tm_midnightTime.tm_sec = tm_midnightTime.tm_min = tm_midnightTime.tm_hour = 0;
-	mktime(&tm_midnightTime);
-
-	sun.setPosition(LATITUDE, LONGITUDE, TIMEZONE);
-    sun.setCurrentDate(tm_currTime.tm_year + 1900, tm_currTime.tm_mon + 1, tm_currTime.tm_mday);
-    sun.setTZOffset(TIMEZONE);
-
-    double sunrise = sun.calcSunrise();
-    double sunset = sun.calcSunset();
-    int moonphase = sun.moonPhase(std::time(nullptr));
-
-	time_t midnightTime = mktime(&tm_midnightTime);
-	time_t sunriseTime = midnightTime + (sunrise * 60);
-	time_t sunsetTime = midnightTime + (sunset * 60);
-
-    double sunriseDiff = difftime(sunriseTime, currTime);
-	double sunsetDiff = difftime(sunsetTime, currTime);
-
-    if (sunriseDiff < 0 && sunsetDiff < 0) { //after sunset before midnight
-		//add a day to sunset -> timer
-		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
-		sunriseDiff = difftime(sunriseTime, currTime);
-		iconTimer->start(sunriseDiff * 1000);
-		darkmode = true;
-	} 
-	else if (sunriseDiff < 0) { //between sunrise and sunset
-        // set timer to sunset
-		iconTimer->start(sunsetDiff * 1000);
-		darkmode = false;
-	} else {
-		// set to sunrise
-		iconTimer->start(sunriseDiff * 1000);
-		darkmode = true;
-	}
-
-	if(darkmode) {
-		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	} else {
-		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
-	}
-    mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
-}
-
 bool wxPassman::OnInit()
 {
 	if (!wxApp::OnInit())
+	{
 		return false;
+	}
 
 	if (!wxTaskBarIcon::IsAvailable())
 	{
@@ -125,9 +78,9 @@ bool wxPassman::OnInit()
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
 
+	std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 	iconTimer = new IconTimer();
-    InitializeIconTimer();
-
+	MainDialog::InitializeIconTimer();
 	return true;
 }
 
@@ -278,14 +231,77 @@ void VerifyKey()
 	}
 }
 
-void MainDialog::ResetIconTimer() {
-	if(darkmode) {
+void MainDialog::InitializeIconTimer()
+{
+	time_t currTime = time(0);
+	struct tm tm_currTime;
+	localtime_r(&currTime, &tm_currTime);
+	mktime(&tm_currTime);
+
+	struct tm tm_midnightTime;
+	localtime_r(&currTime, &tm_midnightTime);
+	tm_midnightTime.tm_sec = tm_midnightTime.tm_min = tm_midnightTime.tm_hour = 0;
+	mktime(&tm_midnightTime);
+
+	sun.setPosition(LATITUDE, LONGITUDE, TIMEZONE);
+	sun.setCurrentDate(tm_currTime.tm_year + 1900, tm_currTime.tm_mon + 1, tm_currTime.tm_mday);
+	sun.setTZOffset(TIMEZONE);
+
+	double sunrise = sun.calcSunrise();
+	double sunset = sun.calcSunset();
+	int moonphase = sun.moonPhase(std::time(nullptr));
+
+	time_t midnightTime = mktime(&tm_midnightTime);
+	time_t sunriseTime = midnightTime + (sunrise * 60);
+	time_t sunsetTime = midnightTime + (sunset * 60);
+
+	double sunriseDiff = difftime(sunriseTime, currTime);
+	double sunsetDiff = difftime(sunsetTime, currTime);
+
+	if (sunriseDiff < 0 && sunsetDiff < 0)
+	{ // after sunset before midnight
+		// add a day to sunset -> timer
+		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
+		sunriseDiff = difftime(sunriseTime, currTime);
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	}
+	else if (sunriseDiff < 0)
+	{ // between sunrise and sunset
+		// set timer to sunset
+		iconTimer->start(sunsetDiff * 1000);
+		darkmode = false;
+	}
+	else
+	{
+		// set to sunrise
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	}
+
+	if (darkmode)
+	{
 		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	} else {
+	}
+	else
+	{
 		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	}
 	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
-    InitializeIconTimer();
+}
+
+void MainDialog::ResetIconTimer()
+{
+	if (darkmode)
+	{
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	}
+	else
+	{
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+	InitializeIconTimer();
 }
 
 void MainDialog::OnCellClick(wxGridEvent &event)
@@ -295,6 +311,27 @@ void MainDialog::OnCellClick(wxGridEvent &event)
 	std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 	decryptPassword = false;
+}
+
+void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
+{
+	Show(false);
+}
+
+void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
+{
+	Close(true);
+}
+
+void MainDialog::OnDelete(wxCommandEvent &WXUNUSED(event))
+{
+	wxString title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
+	std::string query = WxToString(title);
+	std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
+	if (grid->GetNumberRows() != 0) {
+		grid->DeleteRows(0, grid->GetNumberRows(), true);
+	}
+	DisplayData();
 }
 
 void MainDialog::OnSearch(wxCommandEvent &event)
@@ -366,29 +403,10 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 		wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
 		sqlite3_free(sqlErrMsg);
 	}
-	if (grid->GetNumberRows() != 0)
+	if (grid->GetNumberRows() != 0) {
 		grid->DeleteRows(0, grid->GetNumberRows(), true);
+	}
 	DisplayData();
-}
-
-void MainDialog::OnDelete(wxCommandEvent &WXUNUSED(event))
-{
-	wxString title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
-	std::string query = WxToString(title);
-	std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
-	if (grid->GetNumberRows() != 0)
-		grid->DeleteRows(0, grid->GetNumberRows(), true);
-	DisplayData();
-}
-
-void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
-{
-	Close(true);
-}
-
-void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
-{
-	Show(false);
 }
 
 enum
@@ -407,6 +425,37 @@ EVT_MENU(PU_RESTORE, TaskBarIcon::OnMenuRestore)
 EVT_MENU(PU_NEW_ICON, TaskBarIcon::OnMenuChangeIcon)
 EVT_MENU(PU_EXIT, TaskBarIcon::OnMenuExit)
 wxEND_EVENT_TABLE()
+
+wxMenu *TaskBarIcon::CreatePopupMenu()
+{
+	wxMenu *menu = new wxMenu;
+	menu->Append(PU_RESTORE, "Show");
+	menu->Append(PU_NEW_ICON, "Icon");
+	menu->AppendSeparator();
+	menu->Append(PU_EXIT, "Exit");
+	return menu;
+}
+
+void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &)
+{
+	if (darkmode)
+	{
+		darkmode = false;
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	}
+	else
+	{
+		darkmode = true;
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+	this->SetIcon(icon, "Password Manager");
+}
+
+void TaskBarIcon::OnMenuExit(wxCommandEvent &)
+{
+	sqlite3_close(db);
+	mainDialog->Destroy();
+}
 
 void TaskBarIcon::OnMenuRestore(wxCommandEvent &)
 {
@@ -445,31 +494,4 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent &)
 		mainDialog->Show(false);
 	}
 	searchInput->SetFocus();
-}
-
-void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &) {
-	if(darkmode) {
-		darkmode = false;
-		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	} else {
-		darkmode = true;
-		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
-	}
-	this->SetIcon(icon, "Password Manager");
-}
-
-void TaskBarIcon::OnMenuExit(wxCommandEvent &)
-{
-	sqlite3_close(db);
-	mainDialog->Destroy();
-}
-
-wxMenu *TaskBarIcon::CreatePopupMenu()
-{
-	wxMenu *menu = new wxMenu;
-	menu->Append(PU_RESTORE, "Show");
-	menu->Append(PU_NEW_ICON, "Icon");
-	menu->AppendSeparator();
-	menu->Append(PU_EXIT, "Exit");
-	return menu;
 }
