@@ -21,10 +21,8 @@
 #include "wx/taskbar.h"
 #include "wxpassman.h"
 #include "./sqlite3-3.35.2/sqlite3.h"
-//#include <fstream>
-//#include <iostream>
-//#include <ios>
-//#include <cstdio>
+#include <stdio.h>
+#include <time.h>
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -43,6 +41,7 @@ MainDialog* mainDialog = NULL;
 int sqlReturnCode;
 sqlite3* db;
 std::string masterKey = "";
+std::string toDelete = "";
 timer_* timer;
 wxGrid* grid;
 wxTextCtrl* searchInput;
@@ -53,6 +52,7 @@ bool wxPassman::OnInit()
 {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
+	srand(time(NULL));
 	if (!wxApp::OnInit()) return false;
 
 	if (!wxTaskBarIcon::IsAvailable()) {
@@ -68,7 +68,6 @@ bool wxPassman::OnInit()
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(wxICON(key));
 	mainDialog->Show(false);
-
 	return true;
 }
 
@@ -95,7 +94,9 @@ MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) 
 	grid->EnableEditing(false);
 	grid->AutoSizeRows();
 	grid->DisableDragRowSize();
-	grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MainDialog::OnCellClick);
+	grid->Bind(wxEVT_GRID_CELL_LEFT_CLICK, MainDialog::OnCellClick);
+	grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MainDialog::OnCellDClick);
+	grid->Bind(wxEVT_GRID_CELL_RIGHT_CLICK, MainDialog::OnCellRightClick);
 	sizerTop->Add(grid, flags.Align(wxALIGN_CENTRE));
 	searchInput = new wxTextCtrl(this, -1, "", wxDefaultPosition);
 	searchInput->Bind(wxEVT_TEXT, MainDialog::OnSearch);
@@ -120,6 +121,11 @@ std::string WxToString(wxString wx_string) {
 	return std::string(wx_string.mb_str(wxConvUTF8));
 }
 
+wxString StringToWxString(std::string tempString) {
+	wxString myWxString(tempString.c_str(), wxConvUTF8);
+	return myWxString;
+}
+
 std::string Decrypt(std::string cipher) {
 	std::string decoded;
 	CryptoPP::HexDecoder decoder;
@@ -138,7 +144,18 @@ std::string Decrypt(std::string cipher) {
 static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) {
 	int i;
 	bool found = false;
+	char msgBuffer[4096];
 	for (i = 0; i < argc; i++) {
+		/*if (strcmp(azColName[i], "GREEN") == 0) {
+			std::string secret = Decrypt(std::string(argv[i]));
+			wxString wSecret = wxString::FromUTF8(secret.c_str());
+			std::string formatSecret = WxToString(wSecret);
+			sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
+		}
+		else {
+			sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+		}
+		OutputDebugStringA(msgBuffer);*/
 		//printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL"); 
 		if (decryptPassword == false) {
 			if (strcmp(azColName[i], "RED") == 0) {
@@ -189,6 +206,7 @@ void VerifyKey() {
 		std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(0, 0)));
 		decryptPassword = true;
 		verifyPassword = true;
+
 		std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
 		sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void*)sqlData, &sqlErrMsg);
 		decryptPassword = false;
@@ -198,10 +216,26 @@ void VerifyKey() {
 
 void MainDialog::OnCellClick(wxGridEvent& event) {
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
+	grid->SelectRow(event.GetRow());
+	toDelete = clicked;
+}
+
+void MainDialog::OnCellDClick(wxGridEvent& event) {
+	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
+	grid->SelectRow(event.GetRow());
 	decryptPassword = true;
 	std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void*)sqlData, &sqlErrMsg);
 	decryptPassword = false;
+}
+
+void MainDialog::OnCellRightClick(wxGridEvent& event)
+{
+	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 1)));
+	if (wxTheClipboard->Open()) {
+		wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(clicked.c_str())));
+		wxTheClipboard->Close();
+	}
 }
 
 void MainDialog::OnSearch(wxCommandEvent& event) {
@@ -270,11 +304,18 @@ void MainDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
-	wxString title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
+	wxString title = "";
+	if (toDelete != "") {
+		title = StringToWxString(toDelete);
+	}
+	else {
+		title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
+	}
 	std::string query = WxToString(title);
 	std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
+	toDelete = "";
 	DisplayData();
 }
 
@@ -340,11 +381,4 @@ void TaskBarIcon::OnLeftButtonClick(wxTaskBarIconEvent&)
 		mainDialog->Show(false);
 	}
 	searchInput->SetFocus();
-}
-
-void BackupData()
-{
-	//std::ifstream in("data.db", std::ios::in | std::ios::binary);
-	//std::ofstream out("D:\\data.db", std::ios::out | std::ios::binary);
-	//out << in.rdbuf();	
 }

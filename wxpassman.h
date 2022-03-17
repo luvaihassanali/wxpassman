@@ -35,6 +35,8 @@ protected:
     void OnCloseWindow(wxCloseEvent& event);
     static void OnSearch(wxCommandEvent& event);
     static void OnCellClick(wxGridEvent& event);
+    static void OnCellDClick(wxGridEvent& event);
+    static void OnCellRightClick(wxGridEvent& event);
     TaskBarIcon   *taskBarIcon;
     wxDECLARE_EVENT_TABLE();
 };
