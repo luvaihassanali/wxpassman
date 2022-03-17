@@ -31,6 +31,8 @@ protected:
     void OnDelete(wxCommandEvent& event);   
     static void OnSearch(wxCommandEvent& event);
     static void OnCellClick(wxGridEvent& event);
+    static void OnCellDClick(wxGridEvent& event);
+    static void OnCellRightClick(wxGridEvent& event);
     wxDECLARE_EVENT_TABLE();
 };
 
