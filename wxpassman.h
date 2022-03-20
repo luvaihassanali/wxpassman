@@ -31,6 +31,7 @@ public:
 protected:
     void OnNew(wxCommandEvent& event);
     void OnDelete(wxCommandEvent& event);
+    void OnRegen(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);
     void OnCloseWindow(wxCloseEvent& event);
     static void OnSearch(wxCommandEvent& event);

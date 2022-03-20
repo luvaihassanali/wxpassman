@@ -74,6 +74,7 @@ bool wxPassman::OnInit()
 wxBEGIN_EVENT_TABLE(MainDialog, wxDialog)
 EVT_BUTTON(wxID_HIGHEST + 1, MainDialog::OnNew)
 EVT_BUTTON(wxID_HIGHEST + 2, MainDialog::OnDelete)
+EVT_BUTTON(wxID_HIGHEST + 3, MainDialog::OnRegen)
 EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
@@ -104,6 +105,7 @@ MainDialog::MainDialog(const wxString& title) : wxDialog(NULL, wxID_ANY, title) 
 	wxSizer* const sizerBtns = new wxBoxSizer(wxHORIZONTAL);
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 1, wxT("&New")));
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
+	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 3, wxT("&Regenerate")));
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
 	SetSizerAndFit(sizerTop);
 	Centre();
@@ -144,7 +146,7 @@ std::string Decrypt(std::string cipher) {
 static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) {
 	int i;
 	bool found = false;
-	char msgBuffer[4096];
+	//char msgBuffer[4096];
 	for (i = 0; i < argc; i++) {
 		/*if (strcmp(azColName[i], "GREEN") == 0) {
 			std::string secret = Decrypt(std::string(argv[i]));
@@ -206,7 +208,6 @@ void VerifyKey() {
 		std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(0, 0)));
 		decryptPassword = true;
 		verifyPassword = true;
-
 		std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
 		sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void*)sqlData, &sqlErrMsg);
 		decryptPassword = false;
@@ -307,6 +308,14 @@ void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
 	wxString title = "";
 	if (toDelete != "") {
 		title = StringToWxString(toDelete);
+		wxString caption = "Are you sure you want to delete " + title + "?";
+		wxMessageDialog* dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
+			wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		int res = dial->ShowModal();
+		dial->Destroy();
+		if (res == wxID_NO) {
+			return;
+		}
 	}
 	else {
 		title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
@@ -317,6 +326,48 @@ void MainDialog::OnDelete(wxCommandEvent& WXUNUSED(event)) {
 	if (grid->GetNumberRows() != 0) grid->DeleteRows(0, grid->GetNumberRows(), true);
 	toDelete = "";
 	DisplayData();
+}
+
+void MainDialog::OnRegen(wxCommandEvent& WXUNUSED(event)) {
+	wxString title = "";
+	if (toDelete != "") {
+		title = StringToWxString(toDelete);
+		wxString caption = "Are you sure you want to regenerate password for " + title + "?";
+		wxMessageDialog* dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
+			wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		int res = dial->ShowModal();
+		dial->Destroy();
+		if (res == wxID_NO) {
+			return;
+		}
+		else {
+			std::string query = WxToString(title);
+			std::string plaintext, ciphertext, recovered;
+			char temp[17];
+			for (int i = 0; i < 16; i++) {
+				temp[i] = alphanum[rand() % alphanumLength];
+			}
+			temp[16] = NULL;
+			plaintext = temp;
+
+			CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
+			encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+			CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
+			ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
+			ef.MessageEnd();
+			std::string key, iv, cipher;
+			CryptoPP::HexEncoder encoder;
+			encoder.Detach(new CryptoPP::StringSink(cipher));
+			encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
+			encoder.MessageEnd();
+			std::string stmt = "UPDATE ENTRIES SET GREEN = '" + cipher + "' WHERE RED = '" + query + "'";
+			sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
+			if (sqlReturnCode != SQLITE_OK) {
+				wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
+				sqlite3_free(sqlErrMsg);
+			}
+		}
+	}
 }
 
 void MainDialog::OnExit(wxCommandEvent& WXUNUSED(event)) {
