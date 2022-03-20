@@ -28,7 +28,8 @@ protected:
     void OnExit(wxCommandEvent& event);
     void OnCloseWindow(wxCloseEvent& event);
     void OnNew(wxCommandEvent& event);
-    void OnDelete(wxCommandEvent& event);   
+    void OnDelete(wxCommandEvent& event);
+    void OnRegen(wxCommandEvent& event);
     static void OnSearch(wxCommandEvent& event);
     static void OnCellClick(wxGridEvent& event);
     static void OnCellDClick(wxGridEvent& event);
