@@ -80,20 +80,7 @@ bool wxPassman::OnInit()
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
-
-	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
-	int pingCounter = 100;
-	while (true) {
-		pingCounter--;
-		if (pingCounter == 0) {
-			wxMessageBox("No internet connection detected.", "Warning", wxOK | wxICON_EXCLAMATION);
-			break;
-		}
-		int x = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
-		if (x == 0) {
-    		break;
-		}
-	}
+	
 	iconTimer = new IconTimer();
 	MainDialog::InitializeIconTimer();
 	return true;
@@ -268,6 +255,8 @@ void VerifyKey()
 
 void MainDialog::InitializeIconTimer()
 {
+	std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+
 	time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
@@ -522,10 +511,6 @@ enum
 	PU_RESTORE = 10001,
 	PU_NEW_ICON,
 	PU_EXIT,
-	PU_CHECKMARK,
-	PU_SUB1,
-	PU_SUB2,
-	PU_SUBMAIN
 };
 
 wxBEGIN_EVENT_TABLE(TaskBarIcon, wxTaskBarIcon)
@@ -538,7 +523,7 @@ wxMenu *TaskBarIcon::CreatePopupMenu()
 {
 	wxMenu *menu = new wxMenu;
 	menu->Append(PU_RESTORE, "Show");
-	menu->Append(PU_NEW_ICON, "Icon");
+	menu->Append(PU_NEW_ICON, "Change icon");
 	menu->AppendSeparator();
 	menu->Append(PU_EXIT, "Exit");
 	return menu;

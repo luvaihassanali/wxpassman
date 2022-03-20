@@ -5,6 +5,7 @@ public:
     void OnMenuRestore(wxCommandEvent&);
     void OnMenuExit(wxCommandEvent&);
     void OnMenuChangeIcon(wxCommandEvent&);
+    void OnMenuDisableIcon(wxCommandEvent&);
     virtual wxMenu *CreatePopupMenu() wxOVERRIDE;
     wxDECLARE_EVENT_TABLE();
 };
