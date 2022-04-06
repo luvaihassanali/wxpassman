@@ -26,10 +26,11 @@
 #include <chrono>
 #include <thread>
 #include <time.h>
+#include <fstream>
 
 #define LATITUDE 45.4127
 #define LONGITUDE -75.6887
-#define TIMEZONE -5 // DST_OFFSET
+#define TIMEZONE -4 // DST_OFFSET
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -51,8 +52,53 @@ wxIcon icon;
 wxTextCtrl *searchInput;
 SunSet sun;
 bool darkmode = false;
+bool debugLog = false;
 
 wxIMPLEMENT_APP(wxPassman);
+
+// https://stackoverflow.com/questions/2393345/how-to-append-text-to-a-text-file-in-c
+static void Log(std::string line)
+{
+	if (debugLog)
+	{
+		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
+		std::ofstream file;
+
+		file.open(filepath, std::ios::out | std::ios::app);
+		if (file.fail())
+			throw std::ios_base::failure(std::strerror(errno));
+
+		// make sure write fails with exception if something is wrong
+		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
+
+		std::cout << line << std::endl;
+		file << line << std::endl;
+	}
+}
+
+static void LogDate(const char a[], const char b[])
+{
+	if (debugLog)
+	{
+		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
+		std::ofstream file;
+
+		file.open(filepath, std::ios::out | std::ios::app);
+		if (file.fail())
+			throw std::ios_base::failure(std::strerror(errno));
+
+		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
+
+		std::cout << a << " " << b << std::endl;
+		file << a << " " << b << std::endl;
+	}
+}
+
+inline bool FileExists(const std::string &name)
+{
+	std::ifstream f(name.c_str());
+	return f.good();
+}
 
 bool wxPassman::OnInit()
 {
@@ -80,18 +126,23 @@ bool wxPassman::OnInit()
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
-	
+
+	if (FileExists("debug.true"))
+	{
+		debugLog = true;
+	}
+
 	iconTimer = new IconTimer();
 	MainDialog::InitializeIconTimer();
 	return true;
 }
 
 wxBEGIN_EVENT_TABLE(MainDialog, wxDialog)
-EVT_BUTTON(wxID_HIGHEST + 1, MainDialog::OnNew)
-EVT_BUTTON(wxID_HIGHEST + 2, MainDialog::OnDelete)
-EVT_BUTTON(wxID_HIGHEST + 3, MainDialog::OnRegen)
-EVT_BUTTON(wxID_EXIT, MainDialog::OnExit)
-EVT_CLOSE(MainDialog::OnCloseWindow)
+	EVT_BUTTON(wxID_HIGHEST + 1, MainDialog::OnNew)
+	EVT_BUTTON(wxID_HIGHEST + 2, MainDialog::OnDelete)
+	EVT_BUTTON(wxID_HIGHEST + 3, MainDialog::OnRegen)
+	EVT_BUTTON(wxID_EXIT, MainDialog::OnExit)
+	EVT_CLOSE(MainDialog::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
 MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, wxPoint(10, 735))
@@ -100,6 +151,7 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 	wxSizer *const sizerTop = new wxBoxSizer(wxVERTICAL);
 	wxSizerFlags flags;
 	flags.Border(wxALL, 10);
+
 	grid = new wxGrid(this, -1, wxPoint(0, 0), wxSize(400, 280));
 	grid->CreateGrid(0, 2);
 	grid->SetColLabelValue(0, _("Title"));
@@ -117,14 +169,17 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 	grid->Bind(wxEVT_GRID_CELL_LEFT_DCLICK, MainDialog::OnCellDClick);
 	grid->Bind(wxEVT_GRID_CELL_RIGHT_CLICK, MainDialog::OnCellRightClick);
 	sizerTop->Add(grid, flags.Align(wxALIGN_CENTRE));
+
 	searchInput = new wxTextCtrl(this, -1, "", wxDefaultPosition);
 	searchInput->Bind(wxEVT_TEXT, MainDialog::OnSearch);
 	sizerTop->Add(searchInput, 1, wxEXPAND | wxALL, 10);
+
 	wxSizer *const sizerBtns = new wxBoxSizer(wxHORIZONTAL);
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 1, wxT("&New")));
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 3, wxT("&Regenerate")));
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
+
 	SetSizerAndFit(sizerTop);
 	taskBarIcon = new TaskBarIcon();
 	if (!taskBarIcon->SetIcon(icon, "Password Manager"))
@@ -145,7 +200,8 @@ std::string WxToString(wxString wx_string)
 	return std::string(wx_string.mb_str(wxConvUTF8));
 }
 
-wxString StringToWxString(std::string tempString) {
+wxString StringToWxString(std::string tempString)
+{
 	wxString myWxString(tempString.c_str(), wxConvUTF8);
 	return myWxString;
 }
@@ -157,10 +213,12 @@ std::string Decrypt(std::string cipher)
 	decoder.Detach(new CryptoPP::StringSink(decoded));
 	decoder.Put((CryptoPP::byte *)cipher.data(), cipher.size());
 	decoder.MessageEnd();
+
 	std::string secret;
 	CryptoPP::EAX<CryptoPP::AES>::Decryption decrypto;
 	decrypto.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
 	CryptoPP::AuthenticatedDecryptionFilter cf(decrypto, new CryptoPP::StringSink(secret));
+
 	cf.Put((CryptoPP::byte *)decoded.data(), decoded.size());
 	cf.MessageEnd();
 	return secret;
@@ -170,7 +228,7 @@ static int SqlExecCallback(void *data, int argc, char **argv, char **azColName)
 {
 	int i;
 	bool found = false;
-	//char msgBuffer[4096];
+	// char msgBuffer[4096];
 	for (i = 0; i < argc; i++)
 	{
 		/*if (strcmp(azColName[i], "GREEN") == 0) {
@@ -255,8 +313,6 @@ void VerifyKey()
 
 void MainDialog::InitializeIconTimer()
 {
-	std::this_thread::sleep_for(std::chrono::milliseconds(15000));
-
 	time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
@@ -282,33 +338,52 @@ void MainDialog::InitializeIconTimer()
 	double sunriseDiff = difftime(sunriseTime, currTime);
 	double sunsetDiff = difftime(sunsetTime, currTime);
 
+	Log("\nInitialize icon timer");
+	Log("Current date: " + std::to_string(tm_currTime.tm_year + 1900) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_mday));
+	Log("Sunrise double: " + std::to_string(sunrise) + " Sunset double: " + std::to_string(sunset));
+	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
+
+	char buff[20];
+	struct tm *timeinfo;
+	timeinfo = localtime(&sunriseTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunriseTime: ", buff);
+	timeinfo = localtime(&sunsetTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunsetTime: ", buff);
+
 	if (sunriseDiff < 0 && sunsetDiff < 0)
-	{ // after sunset before midnight
-		// add a day to sunset -> timer
+	{ // after sunset before midnight, add a day to sunrise for next day
+		Log("after sunset before midnight");
 		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
 		sunriseDiff = difftime(sunriseTime, currTime);
+		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
 		iconTimer->start(sunriseDiff * 1000);
 		darkmode = true;
 	}
 	else if (sunriseDiff < 0)
-	{ // between sunrise and sunset
-		// set timer to sunset
-		iconTimer->start(sunsetDiff * 1000);
+	{ // between sunrise and sunset, set timer to sunset
+		Log("between sunrise and sunset");
+		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
+		iconTimer->start(sunsetDiff * 1000); // in millis
 		darkmode = false;
 	}
 	else
-	{
-		// set to sunrise
+	{ // before sunrise
+		Log("before sunrise");
+		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
 		iconTimer->start(sunriseDiff * 1000);
 		darkmode = true;
 	}
 
 	if (darkmode)
 	{
+		Log("darkmode=true");
 		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
 	}
 	else
 	{
+		Log("darkmode=false");
 		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	}
 	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
@@ -316,37 +391,33 @@ void MainDialog::InitializeIconTimer()
 
 void MainDialog::ResetIconTimer()
 {
-	if (darkmode)
-	{
-		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	}
-	else
-	{
-		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
-	}
-	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+	Log("Reset timer");
 	InitializeIconTimer();
 }
 
-void MainDialog::OnCellClick(wxGridEvent& event) {
+void MainDialog::OnCellClick(wxGridEvent &event)
+{
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
 	grid->SelectRow(event.GetRow());
 	toDelete = clicked;
 }
 
-void MainDialog::OnCellDClick(wxGridEvent& event) {
+void MainDialog::OnCellDClick(wxGridEvent &event)
+{
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
 	grid->SelectRow(event.GetRow());
 	decryptPassword = true;
+
 	std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
-	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void*)sqlData, &sqlErrMsg);
+	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 	decryptPassword = false;
 }
 
-void MainDialog::OnCellRightClick(wxGridEvent& event)
+void MainDialog::OnCellRightClick(wxGridEvent &event)
 {
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 1)));
-	if (wxTheClipboard->Open()) {
+	if (wxTheClipboard->Open())
+	{
 		wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(clicked.c_str())));
 		wxTheClipboard->Close();
 	}
@@ -365,47 +436,57 @@ void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
 void MainDialog::OnDelete(wxCommandEvent &WXUNUSED(event))
 {
 	wxString title = "";
-	if (toDelete != "") {
+	if (toDelete != "")
+	{
 		title = StringToWxString(toDelete);
 		wxString caption = "Are you sure you want to delete " + title + "?";
-		wxMessageDialog* dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
-			wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		wxMessageDialog *dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
+													wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		int res = dial->ShowModal();
 		dial->Destroy();
-		if (res == wxID_NO) {
+		if (res == wxID_NO)
+		{
 			return;
 		}
 	}
-	else {
+	else
+	{
 		title = wxGetTextFromUser("Title:", "Entry to delete", wxEmptyString);
 	}
+	
 	std::string query = WxToString(title);
 	std::string stmt = "DELETE FROM ENTRIES WHERE RED = '" + query + "'";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
-	if (grid->GetNumberRows() != 0) {
+	if (grid->GetNumberRows() != 0)
+	{
 		grid->DeleteRows(0, grid->GetNumberRows(), true);
 	}
 	toDelete = "";
 	DisplayData();
 }
 
-void MainDialog::OnRegen(wxCommandEvent& WXUNUSED(event)) {
+void MainDialog::OnRegen(wxCommandEvent &WXUNUSED(event))
+{
 	wxString title = "";
-	if (toDelete != "") {
+	if (toDelete != "")
+	{
 		title = StringToWxString(toDelete);
 		wxString caption = "Are you sure you want to regenerate password for " + title + "?";
-		wxMessageDialog* dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
-			wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		wxMessageDialog *dial = new wxMessageDialog(NULL, caption, wxT("Password Creation"),
+													wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		int res = dial->ShowModal();
 		dial->Destroy();
-		if (res == wxID_NO) {
+		if (res == wxID_NO)
+		{
 			return;
 		}
-		else {
+		else
+		{
 			std::string query = WxToString(title);
 			std::string plaintext, ciphertext, recovered;
 			char temp[17];
-			for (int i = 0; i < 16; i++) {
+			for (int i = 0; i < 16; i++)
+			{
 				temp[i] = alphanum[rand() % alphanumLength];
 			}
 			temp[16] = NULL;
@@ -414,16 +495,19 @@ void MainDialog::OnRegen(wxCommandEvent& WXUNUSED(event)) {
 			CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
 			encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
 			CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
-			ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
+			ef.Put((CryptoPP::byte *)plaintext.data(), plaintext.size());
 			ef.MessageEnd();
+
 			std::string key, iv, cipher;
 			CryptoPP::HexEncoder encoder;
 			encoder.Detach(new CryptoPP::StringSink(cipher));
-			encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
+			encoder.Put((CryptoPP::byte *)ciphertext.data(), ciphertext.size());
 			encoder.MessageEnd();
+
 			std::string stmt = "UPDATE ENTRIES SET GREEN = '" + cipher + "' WHERE RED = '" + query + "'";
 			sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
-			if (sqlReturnCode != SQLITE_OK) {
+			if (sqlReturnCode != SQLITE_OK)
+			{
 				wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
 				sqlite3_free(sqlErrMsg);
 			}
@@ -453,16 +537,19 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
 		return;
 	}
+
 	wxString user = wxGetTextFromUser("Username:", "Enter new entry details", wxEmptyString);
 	if (user == wxEmptyString)
 	{
 		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
 		return;
 	}
+
 	std::string plaintext, ciphertext, recovered;
 	wxMessageDialog *dial = new wxMessageDialog(NULL, wxT("Do you want to auto-generate password?"), wxT("Password Creation"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 	int res = dial->ShowModal();
 	dial->Destroy();
+
 	if (res == wxID_YES)
 	{
 		char temp[17];
@@ -483,16 +570,19 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 		}
 		plaintext = WxToString(pass);
 	}
+
 	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
 	encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
 	CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
 	ef.Put((CryptoPP::byte *)plaintext.data(), plaintext.size());
 	ef.MessageEnd();
+
 	std::string key, iv, cipher;
 	CryptoPP::HexEncoder encoder;
 	encoder.Detach(new CryptoPP::StringSink(cipher));
 	encoder.Put((CryptoPP::byte *)ciphertext.data(), ciphertext.size());
 	encoder.MessageEnd();
+
 	std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + WxToString(user) + "', '" + cipher + "');";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (sqlReturnCode != SQLITE_OK)
@@ -500,7 +590,8 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 		wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
 		sqlite3_free(sqlErrMsg);
 	}
-	if (grid->GetNumberRows() != 0) {
+	if (grid->GetNumberRows() != 0)
+	{
 		grid->DeleteRows(0, grid->GetNumberRows(), true);
 	}
 	DisplayData();
@@ -509,39 +600,21 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 enum
 {
 	PU_RESTORE = 10001,
-	PU_NEW_ICON,
 	PU_EXIT,
 };
 
 wxBEGIN_EVENT_TABLE(TaskBarIcon, wxTaskBarIcon)
-EVT_MENU(PU_RESTORE, TaskBarIcon::OnMenuRestore)
-EVT_MENU(PU_NEW_ICON, TaskBarIcon::OnMenuChangeIcon)
-EVT_MENU(PU_EXIT, TaskBarIcon::OnMenuExit)
+	EVT_MENU(PU_RESTORE, TaskBarIcon::OnMenuRestore)
+	EVT_MENU(PU_EXIT, TaskBarIcon::OnMenuExit)
 wxEND_EVENT_TABLE()
 
 wxMenu *TaskBarIcon::CreatePopupMenu()
 {
 	wxMenu *menu = new wxMenu;
 	menu->Append(PU_RESTORE, "Show");
-	menu->Append(PU_NEW_ICON, "Change icon");
 	menu->AppendSeparator();
 	menu->Append(PU_EXIT, "Exit");
 	return menu;
-}
-
-void TaskBarIcon::OnMenuChangeIcon(wxCommandEvent &)
-{
-	if (darkmode)
-	{
-		darkmode = false;
-		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	}
-	else
-	{
-		darkmode = true;
-		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
-	}
-	this->SetIcon(icon, "Password Manager");
 }
 
 void TaskBarIcon::OnMenuExit(wxCommandEvent &)
@@ -555,6 +628,7 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent &)
 	mainDialog->SetFocus();
 	mainDialog->Raise();
 	mainDialog->Show(true);
+
 	if (masterKey.compare("") == 0)
 	{
 		wxString pwd;
@@ -575,9 +649,11 @@ void TaskBarIcon::OnMenuRestore(wxCommandEvent &)
 			unsigned int iterations = 15000;
 			char purpose = 0;
 			masterKey = WxToString(pwd);
+
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> kdf;
 			kdf.DeriveKey(derived.data(), derived.size(), purpose, (CryptoPP::byte *)masterKey.data(), masterKey.size(), NULL, 0, iterations);
 			masterKey = "NotAnEmptyString";
+
 			DisplayData();
 			VerifyKey();
 			searchInput->SetFocus();
