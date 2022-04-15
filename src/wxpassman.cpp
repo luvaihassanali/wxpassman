@@ -103,6 +103,7 @@ inline bool FileExists(const std::string &name)
 bool wxPassman::OnInit()
 {
 	srand(time(NULL));
+
 	if (!wxApp::OnInit())
 	{
 		return false;
@@ -181,6 +182,7 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
 
 	SetSizerAndFit(sizerTop);
+	Log("init taskbar icon");
 	taskBarIcon = new TaskBarIcon();
 	if (!taskBarIcon->SetIcon(icon, "Password Manager"))
 	{
@@ -313,6 +315,21 @@ void VerifyKey()
 
 void MainDialog::InitializeIconTimer()
 {
+	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+    int pingCounter = 100;
+	while (true) {
+		pingCounter--;
+		if (pingCounter == 0) {
+			Log("100 pings later...");
+			break;
+		}
+		int pingResult = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
+		Log("Ping result: " + std::to_string(pingResult));
+		if (pingResult == 0) {
+    		break;
+		}
+	}
+
 	time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
@@ -339,7 +356,8 @@ void MainDialog::InitializeIconTimer()
 	double sunsetDiff = difftime(sunsetTime, currTime);
 
 	Log("\nInitialize icon timer");
-	Log("Current date: " + std::to_string(tm_currTime.tm_year + 1900) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_mday));
+	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec));
+	Log("Current date: " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
 	Log("Sunrise double: " + std::to_string(sunrise) + " Sunset double: " + std::to_string(sunset));
 	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
 
@@ -365,7 +383,7 @@ void MainDialog::InitializeIconTimer()
 	{ // between sunrise and sunset, set timer to sunset
 		Log("between sunrise and sunset");
 		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
-		iconTimer->start(sunsetDiff * 1000); // in millis
+		iconTimer->start(std::abs(sunriseDiff * 1000)); // in millis
 		darkmode = false;
 	}
 	else
