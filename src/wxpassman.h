@@ -1,5 +1,3 @@
-#include "utils.h"
-
 class TaskBarIcon : public wxTaskBarIcon
 {
 public:

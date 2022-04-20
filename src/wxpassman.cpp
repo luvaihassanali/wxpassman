@@ -11,6 +11,7 @@
 #include <wx/clipbrd.h>
 #include <wx/font.h>
 #include <wx/grid.h>
+#include <wx/string.h>
 #include <wx/taskbar.h>
 #include <../cryptopp/cryptlib.h>
 #include <../cryptopp/aes.h>
@@ -41,6 +42,13 @@ ClipboardTimer *clipboardTimer;
 wxGrid *grid;
 wxIcon icon;
 wxTextCtrl *searchInput;
+
+static int SqlExecCallback(void *data, int argc, char **argv, char **azColName);
+std::string Decrypt(std::string cipher);
+std::string WxToString(wxString wx_string);
+void DisplayData();
+void VerifyKey();
+wxString StringToWxString(std::string tempString);
 
 wxIMPLEMENT_APP(wxPassman);
 
@@ -210,67 +218,72 @@ static int SqlExecCallback(void *data, int argc, char **argv, char **azColName)
 	return 0;
 }
 
-void DisplayData()
+void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 {
-	sqlReturnCode = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", SqlExecCallback, (void *)sqlData, &sqlErrMsg);
+	wxString title = wxGetTextFromUser("Title:", "Enter new entry details", wxEmptyString);
+	if (title == wxEmptyString)
+	{
+		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+		return;
+	}
+
+	wxString user = wxGetTextFromUser("Username:", "Enter new entry details", wxEmptyString);
+	if (user == wxEmptyString)
+	{
+		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+		return;
+	}
+
+	std::string plaintext, ciphertext, recovered;
+	wxMessageDialog *dial = new wxMessageDialog(NULL, wxT("Do you want to auto-generate password?"), wxT("Password Creation"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+	int res = dial->ShowModal();
+	dial->Destroy();
+
+	if (res == wxID_YES)
+	{
+		char temp[17];
+		for (int i = 0; i < 16; i++)
+		{
+			temp[i] = alphanum[rand() % alphanumLength];
+		}
+		temp[16] = NULL;
+		plaintext = temp;
+	}
+	else
+	{
+		wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
+		if (pass == wxEmptyString)
+		{
+			wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+			return;
+		}
+		plaintext = WxToString(pass);
+	}
+
+	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
+	encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+	CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
+	ef.Put((CryptoPP::byte *)plaintext.data(), plaintext.size());
+	ef.MessageEnd();
+
+	std::string key, iv, cipher;
+	CryptoPP::HexEncoder encoder;
+	encoder.Detach(new CryptoPP::StringSink(cipher));
+	encoder.Put((CryptoPP::byte *)ciphertext.data(), ciphertext.size());
+	encoder.MessageEnd();
+
+	std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + WxToString(user) + "', '" + cipher + "');";
+	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (sqlReturnCode != SQLITE_OK)
 	{
-		wxMessageBox("Database error in display data func.", "Error", wxOK | wxICON_EXCLAMATION);
+		wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
 		sqlite3_free(sqlErrMsg);
 	}
-}
-
-void VerifyKey()
-{
 	if (grid->GetNumberRows() != 0)
 	{
-		std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(0, 0)));
-		decryptPassword = true;
-		verifyPassword = true;
-
-		std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
-		sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
-		decryptPassword = false;
-		verifyPassword = false;
+		grid->DeleteRows(0, grid->GetNumberRows(), true);
 	}
-}
-
-void MainDialog::OnCellClick(wxGridEvent &event)
-{
-	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
-	grid->SelectRow(event.GetRow());
-	toDelete = clicked;
-}
-
-void MainDialog::OnCellDClick(wxGridEvent &event)
-{
-	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
-	grid->SelectRow(event.GetRow());
-	decryptPassword = true;
-
-	std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
-	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
-	decryptPassword = false;
-}
-
-void MainDialog::OnCellRightClick(wxGridEvent &event)
-{
-	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 1)));
-	if (wxTheClipboard->Open())
-	{
-		wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(clicked.c_str())));
-		wxTheClipboard->Close();
-	}
-}
-
-void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
-{
-	Show(false);
-}
-
-void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
-{
-	Close(true);
+	DisplayData();
 }
 
 void MainDialog::OnDelete(wxCommandEvent &WXUNUSED(event))
@@ -369,72 +382,78 @@ void MainDialog::OnSearch(wxCommandEvent &event)
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 }
 
-void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
+void MainDialog::OnCellClick(wxGridEvent &event)
 {
-	wxString title = wxGetTextFromUser("Title:", "Enter new entry details", wxEmptyString);
-	if (title == wxEmptyString)
+	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
+	grid->SelectRow(event.GetRow());
+	toDelete = clicked;
+}
+
+void MainDialog::OnCellDClick(wxGridEvent &event)
+{
+	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
+	grid->SelectRow(event.GetRow());
+	decryptPassword = true;
+
+	std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
+	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
+	decryptPassword = false;
+}
+
+void MainDialog::OnCellRightClick(wxGridEvent &event)
+{
+	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 1)));
+	if (wxTheClipboard->Open())
 	{
-		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
-		return;
+		wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(clicked.c_str())));
+		wxTheClipboard->Close();
 	}
+}
 
-	wxString user = wxGetTextFromUser("Username:", "Enter new entry details", wxEmptyString);
-	if (user == wxEmptyString)
-	{
-		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
-		return;
-	}
-
-	std::string plaintext, ciphertext, recovered;
-	wxMessageDialog *dial = new wxMessageDialog(NULL, wxT("Do you want to auto-generate password?"), wxT("Password Creation"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
-	int res = dial->ShowModal();
-	dial->Destroy();
-
-	if (res == wxID_YES)
-	{
-		char temp[17];
-		for (int i = 0; i < 16; i++)
-		{
-			temp[i] = alphanum[rand() % alphanumLength];
-		}
-		temp[16] = NULL;
-		plaintext = temp;
-	}
-	else
-	{
-		wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
-		if (pass == wxEmptyString)
-		{
-			wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
-			return;
-		}
-		plaintext = WxToString(pass);
-	}
-
-	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
-	encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
-	CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
-	ef.Put((CryptoPP::byte *)plaintext.data(), plaintext.size());
-	ef.MessageEnd();
-
-	std::string key, iv, cipher;
-	CryptoPP::HexEncoder encoder;
-	encoder.Detach(new CryptoPP::StringSink(cipher));
-	encoder.Put((CryptoPP::byte *)ciphertext.data(), ciphertext.size());
-	encoder.MessageEnd();
-
-	std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + WxToString(user) + "', '" + cipher + "');";
-	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
+void DisplayData()
+{
+	sqlReturnCode = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 	if (sqlReturnCode != SQLITE_OK)
 	{
-		wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
+		wxMessageBox("Database error in display data func.", "Error", wxOK | wxICON_EXCLAMATION);
 		sqlite3_free(sqlErrMsg);
 	}
+}
+
+void VerifyKey()
+{
 	if (grid->GetNumberRows() != 0)
 	{
-		grid->DeleteRows(0, grid->GetNumberRows(), true);
+		std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(0, 0)));
+		decryptPassword = true;
+		verifyPassword = true;
+
+		std::string stmt = "SELECT * FROM ENTRIES WHERE RED='" + clicked + "'";
+		sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
+		decryptPassword = false;
+		verifyPassword = false;
 	}
-	DisplayData();
+}
+
+void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
+{
+	Show(false);
+}
+
+void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
+{
+	Close(true);
+}
+
+std::string WxToString(wxString wx_string)
+{
+	return std::string(wx_string.mb_str(wxConvUTF8));
+}
+
+wxString StringToWxString(std::string tempString)
+{
+	wxString myWxString(tempString.c_str(), wxConvUTF8);
+	return myWxString;
 }
 
 enum

@@ -44,7 +44,7 @@ wxpassman_CXXFLAGS = $(WX_CPPFLAGS) -D__WX$(TOOLKIT)__ $(__WXUNIV_DEFINE_p) \
 	$(WX_CXXFLAGS) $(SAMPLES_CXXFLAGS) $(CPPFLAGS) $(CXXFLAGS)
 wxpassman_OBJECTS =  \
 	$(__wxpassman___win32rc) \
-	wxpassman_wxpassman.o wxpassman_utils.o
+	wxpassman_wxpassman.o
 
 ### Conditionally set variables: ###
 
@@ -172,9 +172,6 @@ wxpassman_bundle: $(____wxpassman_BUNDLE_TGT_REF_DEP)
 wxpassman_wxpassman.o: $(srcdir)/wxpassman.cpp
 	$(CXXC) -c -o $@ $(wxpassman_CXXFLAGS) $(srcdir)/wxpassman.cpp
 
-wxpassman_utils.o: $(srcdir)/utils.cpp
-	$(CXXC) -c -o $@ $(wxpassman_CXXFLAGS) $(srcdir)/utils.cpp
-	
 # Include dependency info, if present:
 -include ./.deps/*.d
 
