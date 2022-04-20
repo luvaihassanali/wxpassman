@@ -1,4 +1,4 @@
-#include "wx/wxprec.h"
+#include <wx/wxprec.h>
 
 #ifdef __BORLANDC__
 #pragma hdrstop
@@ -8,6 +8,10 @@
 #include "wx/wx.h"
 #endif
 
+#include <wx/clipbrd.h>
+#include <wx/font.h>
+#include <wx/grid.h>
+#include <wx/taskbar.h>
 #include <../cryptopp/cryptlib.h>
 #include <../cryptopp/aes.h>
 #include <../cryptopp/modes.h>
@@ -16,21 +20,9 @@
 #include <../cryptopp/eax.h>
 #include <../cryptopp/hex.h>
 #include <../cryptopp/sha.h>
-#include "wx/clipbrd.h"
-#include <wx/font.h>
-#include "wx/grid.h"
-#include "wx/taskbar.h"
-#include "wxpassman.h"
-#include "./sqlite3-3.35.2/sqlite3.h"
-#include <sunset.h>
-#include <chrono>
-#include <thread>
-#include <time.h>
-#include <fstream>
+#include "sqlite3-3.35.2/sqlite3.h"
 
-#define LATITUDE 45.4127
-#define LONGITUDE -75.6887
-#define TIMEZONE -4 // DST_OFFSET
+#include "wxpassman.h"
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -46,64 +38,14 @@ sqlite3 *db;
 std::string masterKey = "";
 std::string toDelete = "";
 ClipboardTimer *clipboardTimer;
-IconTimer *iconTimer;
 wxGrid *grid;
 wxIcon icon;
 wxTextCtrl *searchInput;
-SunSet sun;
-bool darkmode = false;
-bool debugLog = false;
 
 wxIMPLEMENT_APP(wxPassman);
 
-// https://stackoverflow.com/questions/2393345/how-to-append-text-to-a-text-file-in-c
-static void Log(std::string line)
-{
-	if (debugLog)
-	{
-		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
-		std::ofstream file;
-
-		file.open(filepath, std::ios::out | std::ios::app);
-		if (file.fail())
-			throw std::ios_base::failure(std::strerror(errno));
-
-		// make sure write fails with exception if something is wrong
-		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
-
-		std::cout << line << std::endl;
-		file << line << std::endl;
-	}
-}
-
-static void LogDate(const char a[], const char b[])
-{
-	if (debugLog)
-	{
-		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
-		std::ofstream file;
-
-		file.open(filepath, std::ios::out | std::ios::app);
-		if (file.fail())
-			throw std::ios_base::failure(std::strerror(errno));
-
-		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
-
-		std::cout << a << " " << b << std::endl;
-		file << a << " " << b << std::endl;
-	}
-}
-
-inline bool FileExists(const std::string &name)
-{
-	std::ifstream f(name.c_str());
-	return f.good();
-}
-
 bool wxPassman::OnInit()
 {
-	srand(time(NULL));
-
 	if (!wxApp::OnInit())
 	{
 		return false;
@@ -127,14 +69,7 @@ bool wxPassman::OnInit()
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
-
-	if (FileExists("debug.true"))
-	{
-		debugLog = true;
-	}
-
-	iconTimer = new IconTimer();
-	MainDialog::InitializeIconTimer();
+	
 	return true;
 }
 
@@ -180,9 +115,8 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 2, wxT("&Delete")));
 	sizerBtns->Add(new wxButton(this, wxID_HIGHEST + 3, wxT("&Regenerate")));
 	sizerTop->Add(sizerBtns, flags.Align(wxALIGN_CENTER_HORIZONTAL));
-
 	SetSizerAndFit(sizerTop);
-	Log("init taskbar icon");
+
 	taskBarIcon = new TaskBarIcon();
 	if (!taskBarIcon->SetIcon(icon, "Password Manager"))
 	{
@@ -194,18 +128,6 @@ MainDialog::~MainDialog()
 {
 	delete taskBarIcon;
 	delete clipboardTimer;
-	delete iconTimer;
-}
-
-std::string WxToString(wxString wx_string)
-{
-	return std::string(wx_string.mb_str(wxConvUTF8));
-}
-
-wxString StringToWxString(std::string tempString)
-{
-	wxString myWxString(tempString.c_str(), wxConvUTF8);
-	return myWxString;
 }
 
 std::string Decrypt(std::string cipher)
@@ -311,106 +233,6 @@ void VerifyKey()
 		decryptPassword = false;
 		verifyPassword = false;
 	}
-}
-
-void MainDialog::InitializeIconTimer()
-{
-	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
-    int pingCounter = 100;
-	while (true) {
-		pingCounter--;
-		if (pingCounter == 0) {
-			Log("100 pings later...");
-			break;
-		}
-		int pingResult = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
-		Log("Ping result: " + std::to_string(pingResult));
-		if (pingResult == 0) {
-    		break;
-		}
-	}
-
-	time_t currTime = time(0);
-	struct tm tm_currTime;
-	localtime_r(&currTime, &tm_currTime);
-	mktime(&tm_currTime);
-
-	struct tm tm_midnightTime;
-	localtime_r(&currTime, &tm_midnightTime);
-	tm_midnightTime.tm_sec = tm_midnightTime.tm_min = tm_midnightTime.tm_hour = 0;
-	mktime(&tm_midnightTime);
-
-	sun.setPosition(LATITUDE, LONGITUDE, TIMEZONE);
-	sun.setCurrentDate(tm_currTime.tm_year + 1900, tm_currTime.tm_mon + 1, tm_currTime.tm_mday);
-	sun.setTZOffset(TIMEZONE);
-
-	double sunrise = sun.calcSunrise();
-	double sunset = sun.calcSunset();
-	int moonphase = sun.moonPhase(std::time(nullptr));
-
-	time_t midnightTime = mktime(&tm_midnightTime);
-	time_t sunriseTime = midnightTime + (sunrise * 60);
-	time_t sunsetTime = midnightTime + (sunset * 60);
-
-	double sunriseDiff = difftime(sunriseTime, currTime);
-	double sunsetDiff = difftime(sunsetTime, currTime);
-
-	Log("\nInitialize icon timer");
-	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec));
-	Log("Current date: " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
-	Log("Sunrise double: " + std::to_string(sunrise) + " Sunset double: " + std::to_string(sunset));
-	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
-
-	char buff[20];
-	struct tm *timeinfo;
-	timeinfo = localtime(&sunriseTime);
-	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
-	LogDate("sunriseTime: ", buff);
-	timeinfo = localtime(&sunsetTime);
-	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
-	LogDate("sunsetTime: ", buff);
-
-	if (sunriseDiff < 0 && sunsetDiff < 0)
-	{ // after sunset before midnight, add a day to sunrise for next day
-		Log("after sunset before midnight");
-		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
-		sunriseDiff = difftime(sunriseTime, currTime);
-		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
-		iconTimer->start(sunriseDiff * 1000);
-		darkmode = true;
-	}
-	else if (sunriseDiff < 0)
-	{ // between sunrise and sunset, set timer to sunset
-		Log("between sunrise and sunset");
-		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
-		iconTimer->start(std::abs(sunriseDiff * 1000)); // in millis
-		darkmode = false;
-	}
-	else
-	{ // before sunrise
-		Log("before sunrise");
-		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
-		iconTimer->start(sunriseDiff * 1000);
-		darkmode = true;
-	}
-
-	if (darkmode)
-	{
-		Log("darkmode=true");
-		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
-	}
-	else
-	{
-		Log("darkmode=false");
-		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
-	}
-	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
-}
-
-void MainDialog::ResetIconTimer()
-{
-	Log("Reset timer");
-	InitializeIconTimer();
 }
 
 void MainDialog::OnCellClick(wxGridEvent &event)

@@ -1,3 +1,5 @@
+#include "utils.h"
+
 class TaskBarIcon : public wxTaskBarIcon
 {
 public:
@@ -20,8 +22,6 @@ public:
     MainDialog(const wxString& title);
     virtual ~MainDialog();
     TaskBarIcon   *taskBarIcon;
-    static void InitializeIconTimer();
-    static void ResetIconTimer();
 
 protected:
     void OnExit(wxCommandEvent& event);
@@ -42,12 +42,4 @@ public:
     ClipboardTimer() :wxTimer() {}
     void Notify() { wxTheClipboard->Clear(); }
     void start() { wxTimer::StartOnce(3000); }
-};
-
-class IconTimer : public wxTimer
-{
-public:
-    IconTimer() :wxTimer() {}
-    void Notify() { MainDialog::ResetIconTimer(); }
-    void start(int millis) { wxTimer::StartOnce(millis); }
 };
