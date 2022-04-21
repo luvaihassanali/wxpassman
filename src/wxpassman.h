@@ -20,6 +20,7 @@ public:
     MainDialog(const wxString& title);
     virtual ~MainDialog();
     TaskBarIcon   *taskBarIcon;
+    static void IconTimerNotify();
 
 protected:
     void OnExit(wxCommandEvent& event);
@@ -40,4 +41,13 @@ public:
     ClipboardTimer() :wxTimer() {}
     void Notify() { wxTheClipboard->Clear(); }
     void start() { wxTimer::StartOnce(3000); }
+};
+
+class IconTimer : public wxTimer
+{
+public:
+    IconTimer() :wxTimer() {}
+    void Notify() { MainDialog::IconTimerNotify(); }
+    void start() { wxTimer::Start(3000); }
+    void startOnce() { wxTimer::StartOnce(0001); }
 };

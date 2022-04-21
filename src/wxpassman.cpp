@@ -23,12 +23,25 @@
 #include <../cryptopp/sha.h>
 #include "sqlite3-3.35.2/sqlite3.h"
 
+#include <sunset.h>
+#include <chrono>
+#include <thread>
+#include <time.h>
+#include <fstream>
+
 #include "wxpassman.h"
+
+#define LATITUDE 45.4127
+#define LONGITUDE -75.6887
+#define TIMEZONE -4 // DST_OFFSET
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
 const char *sqlData = "SQL SELECT:\n";
 
+bool darkmode = false;
+bool debugLog = false;
+bool iconTimerStarted = false;
 bool decryptPassword = false;
 bool verifyPassword = false;
 char *sqlErrMsg = 0;
@@ -39,11 +52,16 @@ sqlite3 *db;
 std::string masterKey = "";
 std::string toDelete = "";
 ClipboardTimer *clipboardTimer;
+IconTimer *iconTimer;
+SunSet sun;
 wxGrid *grid;
 wxIcon icon;
 wxTextCtrl *searchInput;
 
+static void Log(std::string line);
+static void LogDate(const char a[], const char b[]);
 static int SqlExecCallback(void *data, int argc, char **argv, char **azColName);
+bool FileExists(const std::string &name);
 std::string Decrypt(std::string cipher);
 std::string WxToString(wxString wx_string);
 void DisplayData();
@@ -54,6 +72,8 @@ wxIMPLEMENT_APP(wxPassman);
 
 bool wxPassman::OnInit()
 {
+	srand(time(NULL));
+
 	if (!wxApp::OnInit())
 	{
 		return false;
@@ -72,12 +92,21 @@ bool wxPassman::OnInit()
 		return false;
 	}
 
+
+	if (FileExists("debug.true"))
+	{
+		debugLog = true;
+	}
+	Log("\nApplication start");
+
 	wxImage::AddHandler(new wxPNGHandler);
 	icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
 	
+	iconTimer = new IconTimer();
+	iconTimer->startOnce();
 	return true;
 }
 
@@ -136,86 +165,6 @@ MainDialog::~MainDialog()
 {
 	delete taskBarIcon;
 	delete clipboardTimer;
-}
-
-std::string Decrypt(std::string cipher)
-{
-	std::string decoded;
-	CryptoPP::HexDecoder decoder;
-	decoder.Detach(new CryptoPP::StringSink(decoded));
-	decoder.Put((CryptoPP::byte *)cipher.data(), cipher.size());
-	decoder.MessageEnd();
-
-	std::string secret;
-	CryptoPP::EAX<CryptoPP::AES>::Decryption decrypto;
-	decrypto.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
-	CryptoPP::AuthenticatedDecryptionFilter cf(decrypto, new CryptoPP::StringSink(secret));
-
-	cf.Put((CryptoPP::byte *)decoded.data(), decoded.size());
-	cf.MessageEnd();
-	return secret;
-}
-
-static int SqlExecCallback(void *data, int argc, char **argv, char **azColName)
-{
-	int i;
-	bool found = false;
-	// char msgBuffer[4096];
-	for (i = 0; i < argc; i++)
-	{
-		/*if (strcmp(azColName[i], "GREEN") == 0) {
-			std::string secret = Decrypt(std::string(argv[i]));
-			wxString wSecret = wxString::FromUTF8(secret.c_str());
-			std::string formatSecret = WxToString(wSecret);
-			sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
-		}
-		else {
-			sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-		}
-		std::cout << msgBuffer << std::endl;*/
-		if (decryptPassword == false)
-		{
-			if (strcmp(azColName[i], "RED") == 0)
-			{
-				grid->AppendRows(1);
-				grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 0), (wxString::FromUTF8(argv[i])));
-			}
-			if (strcmp(azColName[i], "YELLOW") == 0)
-			{
-				grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 1), (wxString::FromUTF8(argv[i])));
-			}
-		}
-		if (strcmp(azColName[i], "GREEN") == 0)
-		{
-			if (decryptPassword == true)
-			{
-				if (verifyPassword)
-				{
-					try
-					{
-						Decrypt(std::string(argv[i]));
-					}
-					catch (const CryptoPP::Exception &exception)
-					{
-						wxMessageBox("The key entered is incorrect. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
-						mainDialog->Destroy();
-						return -1;
-					}
-					return 0;
-				}
-
-				std::string secret = Decrypt(std::string(argv[i]));
-				if (wxTheClipboard->Open())
-				{
-					mainDialog->Show(false);
-					wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(secret.c_str())));
-					wxTheClipboard->Close();
-					clipboardTimer->start();
-				}
-			}
-		}
-	}
-	return 0;
 }
 
 void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
@@ -382,6 +331,107 @@ void MainDialog::OnSearch(wxCommandEvent &event)
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 }
 
+void MainDialog::IconTimerNotify()
+{
+	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+    /*int pingCounter = 100;
+	while (true) {
+		pingCounter--;
+		if (pingCounter == 0) {
+			Log("100 pings later...");
+			break;
+		}
+		int pingResult = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
+		Log("Ping result: " + std::to_string(pingResult));
+		if (pingResult == 0) {
+    		break;
+		}
+	}
+
+	time_t currTime = time(0);
+	struct tm tm_currTime;
+	localtime_r(&currTime, &tm_currTime);
+	mktime(&tm_currTime);
+
+	struct tm tm_midnightTime;
+	localtime_r(&currTime, &tm_midnightTime);
+	tm_midnightTime.tm_sec = tm_midnightTime.tm_min = tm_midnightTime.tm_hour = 0;
+	mktime(&tm_midnightTime);
+
+	sun.setPosition(LATITUDE, LONGITUDE, TIMEZONE);
+	sun.setCurrentDate(tm_currTime.tm_year + 1900, tm_currTime.tm_mon + 1, tm_currTime.tm_mday);
+	sun.setTZOffset(TIMEZONE);
+
+	double sunrise = sun.calcSunrise();
+	double sunset = sun.calcSunset();
+	int moonphase = sun.moonPhase(std::time(nullptr));
+
+	time_t midnightTime = mktime(&tm_midnightTime);
+	time_t sunriseTime = midnightTime + (sunrise * 60);
+	time_t sunsetTime = midnightTime + (sunset * 60);
+
+	double sunriseDiff = difftime(sunriseTime, currTime);
+	double sunsetDiff = difftime(sunsetTime, currTime);
+
+	Log("\nInitialize icon timer");
+	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec));
+	Log("Current date: " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
+	Log("Sunrise double: " + std::to_string(sunrise) + " Sunset double: " + std::to_string(sunset));
+	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
+
+	char buff[20];
+	struct tm *timeinfo;
+	timeinfo = localtime(&sunriseTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunriseTime: ", buff);
+	timeinfo = localtime(&sunsetTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunsetTime: ", buff);
+
+	if (sunriseDiff < 0 && sunsetDiff < 0)
+	{ // after sunset before midnight, add a day to sunrise for next day
+		Log("after sunset before midnight");
+		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
+		sunriseDiff = difftime(sunriseTime, currTime);
+		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	}
+	else if (sunriseDiff < 0)
+	{ // between sunrise and sunset, set timer to sunset
+		Log("between sunrise and sunset");
+		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
+		iconTimer->start(std::abs(sunriseDiff * 1000)); // in millis
+		darkmode = false;
+	}
+	else
+	{ // before sunrise
+		Log("before sunrise");
+		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
+		iconTimer->start(sunriseDiff * 1000);
+		darkmode = true;
+	}*/
+
+    Log("Icon timer notify");
+	if (darkmode)
+	{
+		Log("darkmode=true");
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	}
+	else
+	{
+		Log("darkmode=false");
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+	
+	/*if (!iconTimerStarted) 
+	{
+		iconTimerStarted = true;
+		iconTimer->start();
+	}*/
+}
+
 void MainDialog::OnCellClick(wxGridEvent &event)
 {
 	std::string clicked = WxToString(grid->GetCellValue(wxGridCellCoords(event.GetRow(), 0)));
@@ -410,6 +460,16 @@ void MainDialog::OnCellRightClick(wxGridEvent &event)
 	}
 }
 
+void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
+{
+	Show(false);
+}
+
+void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
+{
+	Close(true);
+}
+
 void DisplayData()
 {
 	sqlReturnCode = sqlite3_exec(db, "SELECT * from ENTRIES order by RED;", SqlExecCallback, (void *)sqlData, &sqlErrMsg);
@@ -418,6 +478,130 @@ void DisplayData()
 		wxMessageBox("Database error in display data func.", "Error", wxOK | wxICON_EXCLAMATION);
 		sqlite3_free(sqlErrMsg);
 	}
+}
+
+std::string Decrypt(std::string cipher)
+{
+	std::string decoded;
+	CryptoPP::HexDecoder decoder;
+	decoder.Detach(new CryptoPP::StringSink(decoded));
+	decoder.Put((CryptoPP::byte *)cipher.data(), cipher.size());
+	decoder.MessageEnd();
+
+	std::string secret;
+	CryptoPP::EAX<CryptoPP::AES>::Decryption decrypto;
+	decrypto.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+	CryptoPP::AuthenticatedDecryptionFilter cf(decrypto, new CryptoPP::StringSink(secret));
+
+	cf.Put((CryptoPP::byte *)decoded.data(), decoded.size());
+	cf.MessageEnd();
+	return secret;
+}
+
+bool FileExists(const std::string &name)
+{
+	std::ifstream f(name.c_str());
+	return f.good();
+}
+
+// https://stackoverflow.com/questions/2393345/how-to-append-text-to-a-text-file-in-c
+static void Log(std::string line)
+{
+	if (debugLog)
+	{
+		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
+		std::ofstream file;
+
+		file.open(filepath, std::ios::out | std::ios::app);
+		if (file.fail())
+			throw std::ios_base::failure(std::strerror(errno));
+
+		// make sure write fails with exception if something is wrong
+		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
+
+		std::cout << line << std::endl;
+		file << line << std::endl;
+	}
+}
+
+static void LogDate(const char a[], const char b[])
+{
+	if (debugLog)
+	{
+		std::string filepath = "/Users/luv/Desktop/wxpassman.log";
+		std::ofstream file;
+
+		file.open(filepath, std::ios::out | std::ios::app);
+		if (file.fail())
+			throw std::ios_base::failure(std::strerror(errno));
+
+		file.exceptions(file.exceptions() | std::ios::failbit | std::ifstream::badbit);
+
+		std::cout << a << " " << b << std::endl;
+		file << a << " " << b << std::endl;
+	}
+}
+
+static int SqlExecCallback(void *data, int argc, char **argv, char **azColName)
+{
+	int i;
+	bool found = false;
+	// char msgBuffer[4096];
+	for (i = 0; i < argc; i++)
+	{
+		/*if (strcmp(azColName[i], "GREEN") == 0) {
+			std::string secret = Decrypt(std::string(argv[i]));
+			wxString wSecret = wxString::FromUTF8(secret.c_str());
+			std::string formatSecret = WxToString(wSecret);
+			sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
+		}
+		else {
+			sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+		}
+		std::cout << msgBuffer << std::endl;*/
+		if (decryptPassword == false)
+		{
+			if (strcmp(azColName[i], "RED") == 0)
+			{
+				grid->AppendRows(1);
+				grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 0), (wxString::FromUTF8(argv[i])));
+			}
+			if (strcmp(azColName[i], "YELLOW") == 0)
+			{
+				grid->SetCellValue(wxGridCellCoords(grid->GetNumberRows() - 1, 1), (wxString::FromUTF8(argv[i])));
+			}
+		}
+		if (strcmp(azColName[i], "GREEN") == 0)
+		{
+			if (decryptPassword == true)
+			{
+				if (verifyPassword)
+				{
+					try
+					{
+						Decrypt(std::string(argv[i]));
+					}
+					catch (const CryptoPP::Exception &exception)
+					{
+						wxMessageBox("The key entered is incorrect. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
+						mainDialog->Destroy();
+						return -1;
+					}
+					return 0;
+				}
+
+				std::string secret = Decrypt(std::string(argv[i]));
+				if (wxTheClipboard->Open())
+				{
+					mainDialog->Show(false);
+					wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(secret.c_str())));
+					wxTheClipboard->Close();
+					clipboardTimer->start();
+				}
+			}
+		}
+	}
+	return 0;
 }
 
 void VerifyKey()
@@ -433,16 +617,6 @@ void VerifyKey()
 		decryptPassword = false;
 		verifyPassword = false;
 	}
-}
-
-void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
-{
-	Show(false);
-}
-
-void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
-{
-	Close(true);
 }
 
 std::string WxToString(wxString wx_string)
