@@ -48,6 +48,5 @@ class IconTimer : public wxTimer
 public:
     IconTimer() :wxTimer() {}
     void Notify() { MainDialog::IconTimerNotify(); }
-    void start() { wxTimer::Start(3000); }
-    void startOnce() { wxTimer::StartOnce(0001); }
+    void start() { wxTimer::Start(60000); }
 };

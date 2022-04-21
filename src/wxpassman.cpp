@@ -54,6 +54,8 @@ std::string toDelete = "";
 ClipboardTimer *clipboardTimer;
 IconTimer *iconTimer;
 SunSet sun;
+time_t sunriseTime;
+time_t sunsetTime;
 wxGrid *grid;
 wxIcon icon;
 wxTextCtrl *searchInput;
@@ -65,6 +67,7 @@ bool FileExists(const std::string &name);
 std::string Decrypt(std::string cipher);
 std::string WxToString(wxString wx_string);
 void DisplayData();
+void IconTimerInit();
 void VerifyKey();
 wxString StringToWxString(std::string tempString);
 
@@ -97,16 +100,15 @@ bool wxPassman::OnInit()
 	{
 		debugLog = true;
 	}
-	Log("\nApplication start");
+	Log("\n\n--- Application start ---");
 
 	wxImage::AddHandler(new wxPNGHandler);
 	icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	mainDialog = new MainDialog("Password Manager");
 	mainDialog->SetIcon(icon);
 	mainDialog->Show(false);
-	
-	iconTimer = new IconTimer();
-	iconTimer->startOnce();
+
+	IconTimerInit();
 	return true;
 }
 
@@ -163,8 +165,11 @@ MainDialog::MainDialog(const wxString &title) : wxDialog(NULL, wxID_ANY, title, 
 
 MainDialog::~MainDialog()
 {
+	Log("~MainDialog");
+	sqlite3_close(db);
 	delete taskBarIcon;
 	delete clipboardTimer;
+	delete iconTimer;
 }
 
 void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
@@ -331,23 +336,8 @@ void MainDialog::OnSearch(wxCommandEvent &event)
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, (void *)sqlData, &sqlErrMsg);
 }
 
-void MainDialog::IconTimerNotify()
+void IconTimerInit()
 {
-	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
-    /*int pingCounter = 100;
-	while (true) {
-		pingCounter--;
-		if (pingCounter == 0) {
-			Log("100 pings later...");
-			break;
-		}
-		int pingResult = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
-		Log("Ping result: " + std::to_string(pingResult));
-		if (pingResult == 0) {
-    		break;
-		}
-	}
-
 	time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
@@ -364,19 +354,16 @@ void MainDialog::IconTimerNotify()
 
 	double sunrise = sun.calcSunrise();
 	double sunset = sun.calcSunset();
-	int moonphase = sun.moonPhase(std::time(nullptr));
 
 	time_t midnightTime = mktime(&tm_midnightTime);
-	time_t sunriseTime = midnightTime + (sunrise * 60);
-	time_t sunsetTime = midnightTime + (sunset * 60);
+	sunriseTime = midnightTime + (sunrise * 60);
+	sunsetTime = midnightTime + (sunset * 60);
 
 	double sunriseDiff = difftime(sunriseTime, currTime);
 	double sunsetDiff = difftime(sunsetTime, currTime);
 
-	Log("\nInitialize icon timer");
-	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec));
-	Log("Current date: " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
-	Log("Sunrise double: " + std::to_string(sunrise) + " Sunset double: " + std::to_string(sunset));
+	Log("Initialize icon timer");
+	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec) + " " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
 	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
 
 	char buff[20];
@@ -389,30 +376,21 @@ void MainDialog::IconTimerNotify()
 	LogDate("sunsetTime: ", buff);
 
 	if (sunriseDiff < 0 && sunsetDiff < 0)
-	{ // after sunset before midnight, add a day to sunrise for next day
+	{
 		Log("after sunset before midnight");
-		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
-		sunriseDiff = difftime(sunriseTime, currTime);
-		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
-		iconTimer->start(sunriseDiff * 1000);
 		darkmode = true;
 	}
 	else if (sunriseDiff < 0)
-	{ // between sunrise and sunset, set timer to sunset
+	{
 		Log("between sunrise and sunset");
-		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
-		iconTimer->start(std::abs(sunriseDiff * 1000)); // in millis
 		darkmode = false;
 	}
 	else
-	{ // before sunrise
-		Log("before sunrise");
-		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
-		iconTimer->start(sunriseDiff * 1000);
+	{
+		Log("after midnight before sunrise");
 		darkmode = true;
-	}*/
+	}
 
-    Log("Icon timer notify");
 	if (darkmode)
 	{
 		Log("darkmode=true");
@@ -424,12 +402,61 @@ void MainDialog::IconTimerNotify()
 		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	}
 	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+		
+	iconTimer = new IconTimer();
+	iconTimer->start();
+}
+
+void MainDialog::IconTimerNotify()
+{
+	time_t currTime = time(0);
+	struct tm tm_currTime;
+	localtime_r(&currTime, &tm_currTime);
+	mktime(&tm_currTime);
 	
-	/*if (!iconTimerStarted) 
+	double sunriseDiff = difftime(sunriseTime, currTime);
+	double sunsetDiff = difftime(sunsetTime, currTime);
+
+	Log("\nIcon timer notify");
+	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec) + " " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
+	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
+
+	char buff[20];
+	struct tm *timeinfo;
+	timeinfo = localtime(&sunriseTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunriseTime: ", buff);
+	timeinfo = localtime(&sunsetTime);
+	strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	LogDate("sunsetTime: ", buff);
+
+	if (sunriseDiff < 0 && sunsetDiff < 0)
 	{
-		iconTimerStarted = true;
-		iconTimer->start();
-	}*/
+		Log("after sunset before midnight");
+		darkmode = true;
+	}
+	else if (sunriseDiff < 0)
+	{
+		Log("between sunrise and sunset");
+		darkmode = false;
+	}
+	else
+	{
+		Log("after midnight before sunrise");
+		darkmode = true;
+	}
+
+	if (darkmode)
+	{
+		Log("darkmode=true");
+		icon.LoadFile(wxT("key-w.png"), wxBITMAP_TYPE_PNG);
+	}
+	else
+	{
+		Log("darkmode=false");
+		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
+	}
+	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
 }
 
 void MainDialog::OnCellClick(wxGridEvent &event)
@@ -467,6 +494,7 @@ void MainDialog::OnCloseWindow(wxCloseEvent &WXUNUSED(event))
 
 void MainDialog::OnExit(wxCommandEvent &WXUNUSED(event))
 {
+	Log("OnExit");
 	Close(true);
 }
 
@@ -652,7 +680,6 @@ wxMenu *TaskBarIcon::CreatePopupMenu()
 
 void TaskBarIcon::OnMenuExit(wxCommandEvent &)
 {
-	sqlite3_close(db);
 	mainDialog->Destroy();
 }
 
