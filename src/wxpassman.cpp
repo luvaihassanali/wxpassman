@@ -339,7 +339,21 @@ void MainDialog::OnSearch(wxCommandEvent &event)
 }
 
 void MainDialog::IconTimerNotify()
-{
+{   
+	int pingCounter = 100;
+	while (true) {
+		pingCounter--;
+		if (pingCounter == 0) {
+			Log("100 pings later...");
+			break;
+		}
+		int pingResult = system("ping -c1 -s1 8.8.8.8  > /dev/null 2>&1");
+		Log("Ping result: " + std::to_string(pingResult));
+		if (pingResult == 0) {
+    		break;
+		}
+	}
+	
 	time_t currTime = time(0);
 	struct tm tm_currTime;
 	localtime_r(&currTime, &tm_currTime);
@@ -383,25 +397,33 @@ void MainDialog::IconTimerNotify()
 	if (sunriseDiff < 0 && sunsetDiff < 0)
 	{ // after sunset before midnight, add a day to sunrise for next day
 		Log("after sunset before midnight");
+		darkmode = true;
 		sunriseTime = midnightTime + (sunrise * 60) + (24 * 60 * 60);
 		sunriseDiff = difftime(sunriseTime, currTime);
 		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
 		iconTimer->startOnce(sunriseDiff * 1000);
-		darkmode = true;
 	}
 	else if (sunriseDiff < 0)
 	{ // between sunrise and sunset, set timer to sunset
 		Log("between sunrise and sunset");
-		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
-		iconTimer->startOnce(std::abs(sunriseDiff * 1000)); // in millis
 		darkmode = false;
+		if (sunsetDiff == 0) {
+			sunsetDiff = sunriseDiff;
+			darkmode = true;
+		}
+		Log("next timer tick in " + std::to_string((sunsetDiff / 60) / 60));
+		iconTimer->startOnce(std::abs(sunsetDiff * 1000)); // in millis
 	}
 	else
-	{ // before sunrise
-		Log("before sunrise");
-		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
-		iconTimer->startOnce(sunriseDiff * 1000);
+	{ // after midnight, before sunrise
+		Log("after midnight, before sunrise");
 		darkmode = true;
+		if (sunriseDiff == 0) {
+			sunriseDiff = sunsetDiff;
+			darkmode = false;
+		}
+		Log("next timer tick in " + std::to_string((sunriseDiff / 60) / 60));
+		iconTimer->startOnce(std::abs(sunriseDiff * 1000));
 	}
 
 	if (darkmode)
