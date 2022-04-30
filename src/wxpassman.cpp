@@ -382,15 +382,20 @@ void MainDialog::IconTimerNotify()
 	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec) + " " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
 	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
 
+	std::string tooltip = "Sunrise: ";
     if (!dateLogged) {
 	    char buff[20];
 	    struct tm *timeinfo;
 	    timeinfo = localtime(&sunriseTime);
-	    strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	    strftime(buff, sizeof(buff), "%H:%M", timeinfo); //"%b %d %H:%M"
 	    LogDate("sunriseTime: ", buff);
+		tooltip.append(buff);
+		tooltip.append("AM / Sunset: ", 13);
 	    timeinfo = localtime(&sunsetTime);
-	    strftime(buff, sizeof(buff), "%b %d %H:%M", timeinfo);
+	    strftime(buff, sizeof(buff), "%H:%M", timeinfo);
 	    LogDate("sunsetTime: ", buff);
+		tooltip.append(buff);
+		tooltip.append("PM", 2);
 		dateLogged = true;
 	}
 
@@ -436,7 +441,7 @@ void MainDialog::IconTimerNotify()
 		Log("darkmode=false");
 		icon.LoadFile(wxT("key-b.png"), wxBITMAP_TYPE_PNG);
 	}
-	mainDialog->taskBarIcon->SetIcon(icon, "Password Manager");
+	mainDialog->taskBarIcon->SetIcon(icon, tooltip);
 }
 
 void MainDialog::OnCellClick(wxGridEvent &event)
