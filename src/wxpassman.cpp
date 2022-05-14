@@ -51,6 +51,7 @@ int sqlReturnCode;
 sqlite3 *db;
 std::string masterKey = "";
 std::string toDelete = "";
+std::string tooltip = "";
 ClipboardTimer *clipboardTimer;
 IconTimer *iconTimer;
 SunSet sun;
@@ -382,8 +383,8 @@ void MainDialog::IconTimerNotify()
 	Log("Current time: " + std::to_string(tm_currTime.tm_hour) + ":" + std::to_string(tm_currTime.tm_min) + ":" + std::to_string(tm_currTime.tm_sec) + " " + std::to_string(tm_currTime.tm_mday) + "/" + std::to_string(tm_currTime.tm_mon + 1) + "/" + std::to_string(tm_currTime.tm_year + 1900));
 	Log("sunriseDiff: " + std::to_string((sunriseDiff / 60) / 60) + " sunsetDiff: " + std::to_string((sunsetDiff / 60) / 60));
 
-	std::string tooltip = "Sunrise: ";
     if (!dateLogged) {
+		tooltip = "Sunrise: ";
 	    char buff[20];
 	    struct tm *timeinfo;
 	    timeinfo = localtime(&sunriseTime);
