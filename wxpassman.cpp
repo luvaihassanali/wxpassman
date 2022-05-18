@@ -23,11 +23,14 @@
 #include "./sqlite3-3.35.2/sqlite3.h"
 #include <stdio.h>
 #include <time.h>
+#include <fstream>
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
 #include <cstdlib>
+
+bool FileExists(const std::string& name);
 
 const char alphanum[] = "0123456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const int alphanumLength = sizeof(alphanum) - 1;
@@ -60,7 +63,13 @@ bool wxPassman::OnInit()
 		return false;
 	}
 
-	sqlReturnCode = sqlite3_open_v2("D://data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	if (FileExists("work.true"))
+	{
+		sqlReturnCode = sqlite3_open_v2("data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	}
+	else {
+		sqlReturnCode = sqlite3_open_v2("D://data.db", &db, SQLITE_OPEN_READWRITE, NULL);
+	}
 	if (sqlReturnCode != SQLITE_OK) {
 		wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
 		return false;
@@ -117,6 +126,12 @@ MainDialog::~MainDialog()
 {
 	delete taskBarIcon;
 	delete timer;
+}
+
+bool FileExists(const std::string& name)
+{
+	std::ifstream f(name.c_str());
+	return f.good();
 }
 
 std::string WxToString(wxString wx_string) {
