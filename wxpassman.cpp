@@ -173,7 +173,6 @@ static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) 
 			sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
 		}
 		OutputDebugStringA(msgBuffer);*/
-		//printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL"); 
 		if (decryptPassword == false) {
 			if (strcmp(azColName[i], "RED") == 0) {
 				grid->AppendRows(1);
