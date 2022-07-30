@@ -220,16 +220,33 @@ void MainDialog::OnNew(wxCommandEvent &WXUNUSED(event))
 	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
 	encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
 	CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
-	ef.Put((CryptoPP::byte *)plaintext.data(), plaintext.size());
+	ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
 	ef.MessageEnd();
-
-	std::string key, iv, cipher;
+	std::string cipher;
 	CryptoPP::HexEncoder encoder;
 	encoder.Detach(new CryptoPP::StringSink(cipher));
-	encoder.Put((CryptoPP::byte *)ciphertext.data(), ciphertext.size());
+	encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
 	encoder.MessageEnd();
 
-	std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + WxToString(user) + "', '" + cipher + "');";
+	std::string plaintext2, ciphertext2;
+	wxString url = wxGetTextFromUser("URL:", "Enter new entry details", wxEmptyString);
+	if (url == wxEmptyString) {
+		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+		return;
+	}
+	plaintext2 = WxToString(url);
+	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor2;
+	encryptor2.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+	CryptoPP::AuthenticatedEncryptionFilter ef2(encryptor2, new CryptoPP::StringSink(ciphertext2));
+	ef2.Put((CryptoPP::byte*)plaintext2.data(), plaintext2.size());
+	ef2.MessageEnd();
+	std::string cipher2;
+	CryptoPP::HexEncoder encoder2;
+	encoder2.Detach(new CryptoPP::StringSink(cipher2));
+	encoder2.Put((CryptoPP::byte*)ciphertext2.data(), ciphertext2.size());
+	encoder2.MessageEnd();
+
+	std::string stmt = "INSERT INTO ENTRIES (RED,BLUE, YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + cipher2 + "', '" + WxToString(user) + "', '" + cipher + "');";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (sqlReturnCode != SQLITE_OK)
 	{
