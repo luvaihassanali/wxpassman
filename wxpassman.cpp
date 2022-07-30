@@ -54,6 +54,7 @@ wxIMPLEMENT_APP(wxPassman);
 bool wxPassman::OnInit()
 {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	//char* str = new char[30];
 
 	srand(time(NULL));
 	if (!wxApp::OnInit()) return false;
@@ -161,18 +162,48 @@ std::string Decrypt(std::string cipher) {
 static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) {
 	int i;
 	bool found = false;
-	//char msgBuffer[4096];
+	bool exportVals = false;
+	char msgBuffer[4096];
+
 	for (i = 0; i < argc; i++) {
-		/*if (strcmp(azColName[i], "GREEN") == 0) {
-			std::string secret = Decrypt(std::string(argv[i]));
-			wxString wSecret = wxString::FromUTF8(secret.c_str());
-			std::string formatSecret = WxToString(wSecret);
-			sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
+
+		if (exportVals) {
+			if (strcmp(azColName[i], "GREEN") == 0) {
+				std::string secret = Decrypt(std::string(argv[i]));
+				wxString wSecret = wxString::FromUTF8(secret.c_str());
+				std::string formatSecret = WxToString(wSecret);
+				sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
+			}
+			else if (strcmp(azColName[i], "BLUE") == 0) {
+				bool hidden = false;
+				if (hidden) {
+					std::string plaintext, ciphertext;
+					plaintext = argv[i];
+					CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
+					encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+					CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
+					ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
+					ef.MessageEnd();
+					std::string key, iv, cipher;
+					CryptoPP::HexEncoder encoder;
+					encoder.Detach(new CryptoPP::StringSink(cipher));
+					encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
+					encoder.MessageEnd();
+					sprintf(msgBuffer, "%s = %s\n", azColName[i], cipher.c_str());
+				}
+				else {
+					std::string secret = Decrypt(std::string(argv[i]));
+					wxString wSecret = wxString::FromUTF8(secret.c_str());
+					std::string formatSecret = WxToString(wSecret);
+					sprintf(msgBuffer, "%s = %s\n", azColName[i], secret.c_str());
+				}
+			}
+			else {
+				sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+			}
+			OutputDebugStringA(msgBuffer);
 		}
-		else {
-			sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-		}
-		OutputDebugStringA(msgBuffer);*/
+
 		if (decryptPassword == false) {
 			if (strcmp(azColName[i], "RED") == 0) {
 				grid->AppendRows(1);
@@ -276,7 +307,7 @@ void MainDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
 		return;
 	}
-	std::string plaintext, ciphertext, recovered;
+	std::string plaintext, ciphertext;
 	wxMessageDialog* dial = new wxMessageDialog(NULL,
 		wxT("Do you want to auto-generate password?"), wxT("Password Creation"),
 		wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
@@ -303,12 +334,31 @@ void MainDialog::OnNew(wxCommandEvent& WXUNUSED(event)) {
 	CryptoPP::AuthenticatedEncryptionFilter ef(encryptor, new CryptoPP::StringSink(ciphertext));
 	ef.Put((CryptoPP::byte*)plaintext.data(), plaintext.size());
 	ef.MessageEnd();
-	std::string key, iv, cipher;
+	std::string cipher;
 	CryptoPP::HexEncoder encoder;
 	encoder.Detach(new CryptoPP::StringSink(cipher));
 	encoder.Put((CryptoPP::byte*)ciphertext.data(), ciphertext.size());
 	encoder.MessageEnd();
-	std::string stmt = "INSERT INTO ENTRIES (RED,YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + WxToString(user) + "', '" + cipher + "');";
+
+	std::string plaintext2, ciphertext2;
+	wxString url = wxGetTextFromUser("URL:", "Enter new entry details", wxEmptyString);
+	if (url == wxEmptyString) {
+		wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+		return;
+	}
+	plaintext2 = WxToString(url);
+	CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor2;
+	encryptor2.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
+	CryptoPP::AuthenticatedEncryptionFilter ef2(encryptor2, new CryptoPP::StringSink(ciphertext2));
+	ef2.Put((CryptoPP::byte*)plaintext2.data(), plaintext2.size());
+	ef2.MessageEnd();
+	std::string cipher2;
+	CryptoPP::HexEncoder encoder2;
+	encoder2.Detach(new CryptoPP::StringSink(cipher2));
+	encoder2.Put((CryptoPP::byte*)ciphertext2.data(), ciphertext2.size());
+	encoder2.MessageEnd();
+
+	std::string stmt = "INSERT INTO ENTRIES (RED,BLUE, YELLOW,GREEN) VALUES ('" + WxToString(title) + "', '" + cipher2 + "', '" + WxToString(user) + "', '" + cipher + "');";
 	sqlReturnCode = sqlite3_exec(db, stmt.c_str(), SqlExecCallback, 0, &sqlErrMsg);
 	if (sqlReturnCode != SQLITE_OK) {
 		wxMessageBox("Database error in on new func.", "Error", wxOK | wxICON_EXCLAMATION);
@@ -356,7 +406,7 @@ void MainDialog::OnRegen(wxCommandEvent& WXUNUSED(event)) {
 		}
 		else {
 			std::string query = WxToString(title);
-			std::string plaintext, ciphertext, recovered;
+			std::string plaintext, ciphertext;
 			char temp[17];
 			for (int i = 0; i < 16; i++) {
 				temp[i] = alphanum[rand() % alphanumLength];
