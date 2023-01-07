@@ -405,14 +405,30 @@ void MainDialog::OnRegen(wxCommandEvent& WXUNUSED(event)) {
 			return;
 		}
 		else {
+
 			std::string query = WxToString(title);
 			std::string plaintext, ciphertext;
-			char temp[17];
-			for (int i = 0; i < 16; i++) {
-				temp[i] = alphanum[rand() % alphanumLength];
+			wxMessageDialog* dial = new wxMessageDialog(NULL,
+				wxT("Do you want to auto-generate password?"), wxT("Password Creation"),
+				wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+			int res = dial->ShowModal();
+			dial->Destroy();
+			if (res == wxID_YES) {
+				char temp[17];
+				for (int i = 0; i < 16; i++) {
+					temp[i] = alphanum[rand() % alphanumLength];
+				}
+				temp[16] = NULL;
+				plaintext = temp;
 			}
-			temp[16] = NULL;
-			plaintext = temp;
+			else {
+				wxString pass = wxGetTextFromUser("Password:", "Enter new entry details", wxEmptyString);
+				if (pass == wxEmptyString) {
+					wxMessageBox("Incomplete entry.", "Error", wxOK | wxICON_EXCLAMATION);
+					return;
+				}
+				plaintext = WxToString(pass);
+			}
 
 			CryptoPP::EAX<CryptoPP::AES>::Encryption encryptor;
 			encryptor.SetKeyWithIV(derived.data(), 16, derived.data() + 16, 16);
