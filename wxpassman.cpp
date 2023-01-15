@@ -165,6 +165,11 @@ static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) 
 	bool exportVals = false;
 	char msgBuffer[4096];
 
+	if (FileExists("export.true"))
+	{
+		exportVals = true;
+	}
+
 	for (i = 0; i < argc; i++) {
 
 		if (exportVals) {
