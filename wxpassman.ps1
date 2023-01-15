@@ -1,12 +1,11 @@
-﻿Import-Module importexcel
-
-cd "C:\Users\luv\Desktop"
+﻿$path = "$PSScriptRoot\vc_mswu_x64"
+Remove-Item "$path\export.true" -Force -ErrorAction SilentlyContinue
 
 $data = "name,url,username,password"
 $data += "`n"
 
 $count = 0
-foreach($line in Get-Content .\temp.txt) {
+foreach($line in Get-Content "$path\temp.txt") {
   $value = $line -split "= "
   if ($count -eq 3) {
     $data += ($value[1] + "`n")
@@ -16,8 +15,8 @@ foreach($line in Get-Content .\temp.txt) {
   }
   $count++
 }
-$data
+
 $output = ConvertFrom-Csv @$data
-$output
-Remove-Item .\temp.xlsx -Force
-$output | Export-Excel .\temp.xlsx
+Remove-Item "$path\temp.csv" -Force -ErrorAction SilentlyContinue
+$output | Export-Csv -Path "$path\temp.csv" -NoTypeInformation
+Remove-Item "$path\temp.txt" -Force -ErrorAction SilentlyContinue

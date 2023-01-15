@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <fstream>
+#include <windows.h>
+#include <iostream>
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -37,6 +39,7 @@ const int alphanumLength = sizeof(alphanum) - 1;
 const char* sqlData = "SQL SELECT:\n";
 
 bool decryptPassword = false;
+bool exportVals = true;
 bool verifyPassword = false;
 char* sqlErrMsg = 0;
 CryptoPP::SecByteBlock derived(32);
@@ -45,6 +48,7 @@ int sqlReturnCode;
 sqlite3* db;
 std::string masterKey = "";
 std::string toDelete = "";
+std::string exportPath = "";
 timer_* timer;
 wxGrid* grid;
 wxTextCtrl* searchInput;
@@ -64,6 +68,29 @@ bool wxPassman::OnInit()
 		return false;
 	}
 
+	WCHAR wc[MAX_PATH];
+	GetModuleFileNameW(NULL, wc, MAX_PATH);
+	char ch[260];
+	char DefChar = ' ';
+	WideCharToMultiByte(CP_ACP, 0, wc, -1, ch, 260, &DefChar, NULL);
+	std::string ss(ch);
+	std::string path = ss.substr(0, ss.length() - 13);
+	path.append("export.true");
+
+	if (FileExists(path))
+	{
+		exportVals = true;
+		std::string filePathPre = path.substr(0, path.length() - 11);
+		exportPath = filePathPre.append("temp.txt");
+		if (!FileExists(exportPath)) {
+			std::ofstream{ exportPath };
+		}
+		else {
+			std::remove(exportPath.c_str());
+			std::ofstream{ exportPath };
+		}
+	}
+
 	if (FileExists("work.true"))
 	{
 		sqlReturnCode = sqlite3_open_v2("data.db", &db, SQLITE_OPEN_READWRITE, NULL);
@@ -71,6 +98,7 @@ bool wxPassman::OnInit()
 	else {
 		sqlReturnCode = sqlite3_open_v2("D://data.db", &db, SQLITE_OPEN_READWRITE, NULL);
 	}
+
 	if (sqlReturnCode != SQLITE_OK) {
 		wxMessageBox("Database cannot be found. Exiting.", "Error", wxOK | wxICON_EXCLAMATION);
 		return false;
@@ -162,13 +190,7 @@ std::string Decrypt(std::string cipher) {
 static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) {
 	int i;
 	bool found = false;
-	bool exportVals = false;
 	char msgBuffer[4096];
-
-	if (FileExists("export.true"))
-	{
-		exportVals = true;
-	}
 
 	for (i = 0; i < argc; i++) {
 
@@ -206,7 +228,11 @@ static int SqlExecCallback(void* data, int argc, char** argv, char** azColName) 
 			else {
 				sprintf(msgBuffer, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
 			}
-			OutputDebugStringA(msgBuffer);
+
+			//OutputDebugStringA(msgBuffer);
+			std::string logLine{ msgBuffer };
+			std::ofstream log(exportPath, std::ios_base::app | std::ios_base::out);
+			log << logLine;
 		}
 
 		if (decryptPassword == false) {
